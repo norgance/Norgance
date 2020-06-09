@@ -1,0 +1,18 @@
+[package]
+name = "convertor"
+version = "0.1.0"
+authors = ["Norgance <66333061+norgance-admin@users.noreply.github.com>"]
+edition = "2018"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+
+# Convert to hexdecimal
+hex = "0.4.2"
+
+# sha1 checksums (for the haveibeenpwned.com dataset)
+sha1 = "0.6.0"
+
+# We use blake2b for checksums
+blake2-rfc = "0.2.18"
