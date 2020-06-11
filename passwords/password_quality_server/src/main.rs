@@ -1,18 +1,120 @@
+use actix_http::ResponseBuilder;
+use actix_web::{
+    error, http::StatusCode, middleware::Logger, web, App, HttpRequest, HttpResponse,
+    HttpServer, Responder,
+};
+use env_logger::Env;
+use failure::Fail;
+use serde::{Serialize};
 use std::env;
 use std::fs::File;
 use std::io::prelude::*;
 use std::io::{BufReader, SeekFrom};
 use std::sync::Arc;
-use warp::Filter;
 
-#[tokio::main]
-async fn main() {
-    if env::var_os("RUST_LOG").is_none() {
-        // Set `RUST_LOG=todos=debug` to see debug logs,
-        // this only shows access logs.
-        env::set_var("RUST_LOG", "password_quality=info");
+struct AppState {
+    lines_count: usize,
+    hashes_file_path: Arc<String>,
+    index: Arc<Vec<usize>>,
+}
+
+#[derive(Fail, Debug)]
+#[fail(display = "password quality error")]
+enum PasswordQualityError {
+    #[fail(display = "internal server error")]
+    InternalError,
+    #[fail(display = "bad hash prefix")]
+    BadHashPrefix,
+    #[fail(display = "unsupported format")]
+    InsupportedFormat,
+}
+
+#[derive(Serialize)]
+struct PasswordQualityErrorResponse {
+    error: String,
+}
+
+impl error::ResponseError for PasswordQualityError {
+    fn error_response(&self) -> HttpResponse {
+        ResponseBuilder::new(self.status_code()).json(PasswordQualityErrorResponse {
+            error: self.to_string(),
+        })
     }
-    pretty_env_logger::init();
+
+    fn status_code(&self) -> StatusCode {
+        match *self {
+            PasswordQualityError::InternalError => StatusCode::INTERNAL_SERVER_ERROR,
+            PasswordQualityError::BadHashPrefix => StatusCode::BAD_REQUEST,
+            PasswordQualityError::InsupportedFormat => StatusCode::NOT_FOUND,
+        }
+    }
+}
+
+#[derive(Serialize)]
+struct HealthCheckResponse {
+    status: String,
+}
+
+async fn healthcheck() -> impl Responder {
+    HttpResponse::Ok().json(HealthCheckResponse {
+        status: String::from("ok"),
+    })
+}
+
+#[derive(Serialize)]
+struct HashesSuffixes {
+    suffixes: Vec<HashSuffix>,
+}
+
+#[derive(Serialize)]
+struct HashSuffix {
+    suffix: String,
+    quality: String,
+}
+
+async fn password_quality(req: HttpRequest, data: web::Data<AppState>) -> impl Responder {
+    let prefix = req.match_info().get("prefix").expect("prefix");
+    if prefix.len() != 5 {
+        return Err(PasswordQualityError::BadHashPrefix);
+    }
+
+    let index = &data.index;
+    let hashes_file_path = (&data.hashes_file_path).to_string();
+    let lines_count = data.lines_count;
+
+    let (from, to) = find_in_index(String::from(prefix), &index)?;
+    let (from_padded, to_padded) = add_padding(from, to, 1000, lines_count);
+    let hashes = load_hashes(hashes_file_path, from_padded, to_padded)?;
+
+    let format = req.match_info().get("format").unwrap_or("text");
+    match format {
+        "json" => {
+            let json = convert_plain_hashes_to_json(hashes);
+            return Ok::<HttpResponse, PasswordQualityError>(
+                HttpResponse::Ok().json(json),
+            );
+        }
+        "csv" => {
+            return Ok::<HttpResponse, PasswordQualityError>(
+                HttpResponse::Ok()
+                    .content_type("application/csv")
+                    .body(hashes),
+            );
+        }
+        "text" | "txt" | "plain" => {
+            return Ok::<HttpResponse, PasswordQualityError>(
+                HttpResponse::Ok().content_type("text/plain").body(hashes),
+            );
+        }
+        _ => {
+            return Err(PasswordQualityError::InsupportedFormat);
+        }
+    }
+}
+
+#[actix_rt::main]
+async fn main() -> std::io::Result<()> {
+    env_logger::from_env(Env::default().default_filter_or("info")).init();
 
     let index_file_path: String = env::var_os("PASSWORD_INDEX_PATH")
         .unwrap_or(std::ffi::OsString::from("index.csv"))
@@ -31,36 +133,30 @@ async fn main() {
         .expect("Unable to parse http port from environment");
 
     let (index, lines_count) = build_index(index_file_path);
-
     let index_arc = Arc::new(index);
     let hashes_file_path_arc = Arc::new(hashes_file_path);
 
-    // GET /hello/warp => 200 OK with body "Hello, warp!"
-    let hello = warp::path!("password_quality" / String)
-        .map(move |name: String| {
-            let hash_index = usize::from_str_radix(&name, 16).expect("Unable to parse the hash");
-            let local_index = Arc::clone(&index_arc);
-            let local_hashes_file_path = Arc::clone(&hashes_file_path_arc).to_string();
-
-            let (from, to) = find_in_index(name, &local_index);
-
-            //let hashes = load_hashes(local_hashes_file_path, from, to.min(lines_count));
-            let hashes = load_hashes(local_hashes_file_path, from, to.min(from + 10));
-
-            //let truncated_hashes = truncate_hashes(hashes);
-            //let json_hashes = truncates_hashes_and_make_json(hashes);
-            // let data = std::str::from_utf8(&buffer).expect("utf8 conversion failed");
-
-            return warp::reply::with_header(hashes, "content-type", "text/plain");
-            // return warp::reply::with_header(json_hashes, "content-type", "application/json");
-        })
-        .with(warp::log("password_quality"))
-        .recover(handle_rejection);
-
-    println!("🌹 Server starting on port {}", http_port);
-    warp::serve(hello).run(([0, 0, 0, 0], http_port)).await;
-
-    // println!("{}", index.len());
+    HttpServer::new(move || {
+        App::new()
+            .wrap(Logger::default())
+            .data(AppState {
+                lines_count: lines_count,
+                index: Arc::clone(&index_arc),
+                hashes_file_path: Arc::clone(&hashes_file_path_arc),
+            })
+            .route("/", web::get().to(healthcheck))
+            .route(
+                "/password_quality/{prefix}.{format}",
+                web::get().to(password_quality),
+            )
+            .route(
+                "/password_quality/{prefix}",
+                web::get().to(password_quality),
+            )
+    })
+    .bind(format!("0.0.0.0:{}", http_port))?
+    .run()
+    .await
 }
 
 fn build_index(index_file_path: String) -> (Vec<usize>, usize) {
@@ -107,128 +203,81 @@ fn build_index(index_file_path: String) -> (Vec<usize>, usize) {
     return (array, current_hash_line);
 }
 
-fn find_in_index(hash_prefix: String, index: &Vec<usize>) -> (usize, usize) {
-    let hash_index = usize::from_str_radix(&hash_prefix, 16).expect("Unable to parse the hash");
+fn find_in_index(
+    hash_prefix: String,
+    index: &Vec<usize>,
+) -> Result<(usize, usize), PasswordQualityError> {
+    let hash_index = match usize::from_str_radix(&hash_prefix, 16) {
+        Ok(x) => x,
+        Err(_) => return Err(PasswordQualityError::BadHashPrefix),
+    };
 
     if hash_index > index.len() {
-        panic!("index too high");
-    }
-
-    if hash_index == index.len() - 1 {
-        panic!("not supported")
+        return Err(PasswordQualityError::BadHashPrefix);
     }
 
     let from = index[hash_index];
     let to = index[hash_index + 1] - 1;
 
-    return (from, to);
+    Ok((from, to))
 }
 
-fn load_hashes(hash_path: String, from: usize, to: usize) -> Vec<u8> {
-    let mut hashes_file = File::open(hash_path).expect("Unable to open hashes file");
+fn load_hashes(hash_path: String, from: usize, to: usize) -> Result<Vec<u8>, PasswordQualityError> {
+    let mut hashes_file = match File::open(hash_path) {
+        Ok(x) => x,
+        Err(_) => return Err(PasswordQualityError::InternalError),
+    };
+
     let count = to - from;
     const BYTES_PER_LINE: usize = 38; // 43
 
     let mut buffer = vec![0; count * BYTES_PER_LINE];
 
-    hashes_file
-        .seek(SeekFrom::Start((from * BYTES_PER_LINE) as u64))
-        .expect("prout seek");
-    //hashes_file.seek(SeekFrom::Start(43)).expect("prout seek");
-    hashes_file.read(&mut buffer).expect("prout read");
+    match hashes_file.seek(SeekFrom::Start((from * BYTES_PER_LINE) as u64)) {
+        Err(_) => return Err(PasswordQualityError::InternalError),
+        _ => {}
+    }
+    match hashes_file.read(&mut buffer) {
+        Err(_) => return Err(PasswordQualityError::InternalError),
+        _ => {}
+    }
 
-    return buffer;
+    return Ok(buffer);
 }
 
-/*fn truncate_hashes(input: Vec<u8>) -> Vec<u8> {
-    const BYTES_PER_LINE: usize = 43;
-    const BYTES_PER_TRUNCATED_LINE: usize = BYTES_PER_LINE - 5;
+fn convert_plain_hashes_to_json(hashes: Vec<u8>) -> HashesSuffixes {
+    const BYTES_PER_LINE: usize = 38;
+    const SUFFIX_LENGTH: usize = 35;
+    const QUALITY_POSITION: usize = 36;
+    let hashes_count = hashes.len() / BYTES_PER_LINE;
 
-    let lines_count = input.len() / BYTES_PER_LINE;
-
-    let mut buffer = vec![0; lines_count * BYTES_PER_TRUNCATED_LINE];
-
-    // Copy the buffers accordingly
-    for i in 0..lines_count {
-        buffer[i * BYTES_PER_TRUNCATED_LINE..(i + 1) * BYTES_PER_TRUNCATED_LINE]
-            .copy_from_slice(&input[i * BYTES_PER_LINE + 5..(i + 1) * BYTES_PER_LINE]);
+    let mut suffixes = Vec::with_capacity(hashes_count);
+    for i in 0..hashes_count {
+        suffixes.push(HashSuffix {
+            suffix: String::from_utf8_lossy(
+                &hashes[i * BYTES_PER_LINE..i * BYTES_PER_LINE + SUFFIX_LENGTH],
+            )
+            .into_owned(),
+            quality: String::from_utf8_lossy(
+                &hashes[i * BYTES_PER_LINE + QUALITY_POSITION
+                    ..i * BYTES_PER_LINE + QUALITY_POSITION + 1],
+            )
+            .into_owned(),
+        })
     }
 
-    return buffer;
-}*/
+    HashesSuffixes { suffixes: suffixes }
+}
 
-/*fn truncates_hashes_and_make_json(input: Vec<u8>) -> Vec<u8> {
-    const TRUNCATION_LINE_START : usize = 5;
-    const TRUNCATION_LINE_END : usize = 3;
-    const BYTES_PER_LINE: usize = 43;
-    const BYTES_PER_TRUNCATED_LINE: usize = BYTES_PER_LINE - TRUNCATION_LINE_START - TRUNCATION_LINE_END;
-    // {"suffixes":[]}
-    const JSON_CONTAINER_OVERHEAD: usize = 15;
-    // {"suffix":"","score":""},{ ,
-    const JSON_LINE_OVERHEAD: usize = 25;
-    const BYTES_PER_JSON_LINE: usize = BYTES_PER_TRUNCATED_LINE + JSON_LINE_OVERHEAD;
-
-    let lines_count = input.len() / BYTES_PER_LINE;
-    // We remove 1 because we need to remove the last comma
-    let buffer_size = lines_count * BYTES_PER_JSON_LINE + JSON_CONTAINER_OVERHEAD - 1;
-    let mut buffer = vec![0; buffer_size];
-
-
-    const JSON_CONTAINER_PREFIX: &[u8] = "{\"suffixes\":[".as_bytes();
-    const JSON_CONTAINER_PREFIX_LENGTH: usize = JSON_CONTAINER_PREFIX.len();
-    const JSON_CONTAINER_SUFFIX: &[u8] = "]}".as_bytes();
-    const JSON_CONTAINER_SUFFIX_LENGTH: usize = JSON_CONTAINER_SUFFIX.len();
-
-    buffer[0..JSON_CONTAINER_PREFIX_LENGTH].copy_from_slice(JSON_CONTAINER_PREFIX);
-
-    const JSON_LINE_PREFIX: &[u8] = "{\"suffix\":\"".as_bytes();
-    const JSON_LINE_PREFIX_LENGTH: usize = JSON_LINE_PREFIX.len();
-    const JSON_LINE_SUFFIX: &[u8] = "\",\"score\":\"?\"},".as_bytes();
-    const JSON_LINE_SUFFIX_LENGTH: usize = JSON_LINE_SUFFIX.len();
-
-    const MIDDLE_INDEX: usize = JSON_LINE_PREFIX_LENGTH + BYTES_PER_TRUNCATED_LINE;// - TRUNCATION_LINE_END;
-
-    // Copy the buffers accordingly
-    for i in 0..lines_count {
-        let start = JSON_CONTAINER_PREFIX_LENGTH + i * BYTES_PER_JSON_LINE;
-        let middle = start + MIDDLE_INDEX;
-        buffer[start..start + JSON_LINE_PREFIX_LENGTH].copy_from_slice(JSON_LINE_PREFIX);
-        buffer[start + JSON_LINE_PREFIX_LENGTH..middle]
-            .copy_from_slice(&input[i * BYTES_PER_LINE + TRUNCATION_LINE_START..(i + 1) * (BYTES_PER_LINE) - TRUNCATION_LINE_END]);
-        buffer[middle..middle + JSON_LINE_SUFFIX_LENGTH].copy_from_slice(JSON_LINE_SUFFIX);
-        buffer[middle+11] = input[i * BYTES_PER_LINE + 41];
+fn add_padding(from: usize, to: usize, target: usize, lines_count: usize) -> (usize, usize) {
+    let size = to-from;
+    if size >= target {
+        return (from, to)
     }
-
-    // We overide the end of the buffer with the container suffix
-    buffer[buffer_size - JSON_CONTAINER_SUFFIX_LENGTH..buffer_size].copy_from_slice(JSON_CONTAINER_SUFFIX);
+    let missing = target-size;
     
-    return buffer;
-}*/
-use warp::{reject, Rejection, Reply};
-use warp::http::StatusCode;
-use std::convert::Infallible;
-
-async fn handle_rejection(err: Rejection) -> Result<impl Reply, Infallible> {
-    let code;
-    let message;
-
-    if err.is_not_found() {
-        code = StatusCode::NOT_FOUND;
-        message = "NOT_FOUND";
-    /*} else if let Some(DivideByZero) = err.find() {
-        code = StatusCode::BAD_REQUEST;
-        message = "DIVIDE_BY_ZERO";*/
-    } else if let Some(_) = err.find::<warp::reject::MethodNotAllowed>() {
-        // We can handle a specific error, here METHOD_NOT_ALLOWED,
-        // and render it however we want
-        code = StatusCode::METHOD_NOT_ALLOWED;
-        message = "METHOD_NOT_ALLOWED";
-    } else {
-        // We should have expected this... Just log and say its a 500
-        eprintln!("unhandled rejection: {:?}", err);
-        code = StatusCode::INTERNAL_SERVER_ERROR;
-        message = "UNHANDLED_REJECTION";
+    if to+missing > lines_count {
+        return (from-missing, to);
     }
-
-    Ok(warp::reply::with_status(format!("{}: {}", code, message), code))
+    return (from, to+missing);
 }
