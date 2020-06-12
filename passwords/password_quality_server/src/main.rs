@@ -1,11 +1,11 @@
 use actix_http::ResponseBuilder;
 use actix_web::{
-    error, http::StatusCode, middleware::Logger, web, App, HttpRequest, HttpResponse,
-    HttpServer, Responder,
+    error, http::StatusCode, middleware::Logger, web, App, HttpRequest, HttpResponse, HttpServer,
+    Responder,
 };
 use env_logger::Env;
 use failure::Fail;
-use serde::{Serialize};
+use serde::Serialize;
 use std::env;
 use std::fs::File;
 use std::io::prelude::*;
@@ -82,7 +82,7 @@ async fn password_quality(req: HttpRequest, data: web::Data<AppState>) -> impl R
     let hashes_file_path = (&data.hashes_file_path).to_string();
     let lines_count = data.lines_count;
 
-    let (from, to) = find_in_index(String::from(prefix), &index)?;
+    let (from, to) = find_in_index(String::from(prefix), &index, lines_count)?;
     let (from_padded, to_padded) = add_padding(from, to, 1000, lines_count);
     let hashes = load_hashes(hashes_file_path, from_padded, to_padded)?;
 
@@ -90,9 +90,7 @@ async fn password_quality(req: HttpRequest, data: web::Data<AppState>) -> impl R
     match format {
         "json" => {
             let json = convert_plain_hashes_to_json(hashes);
-            return Ok::<HttpResponse, PasswordQualityError>(
-                HttpResponse::Ok().json(json),
-            );
+            return Ok::<HttpResponse, PasswordQualityError>(HttpResponse::Ok().json(json));
         }
         "csv" => {
             return Ok::<HttpResponse, PasswordQualityError>(
@@ -206,20 +204,25 @@ fn build_index(index_file_path: String) -> (Vec<usize>, usize) {
 fn find_in_index(
     hash_prefix: String,
     index: &Vec<usize>,
+    lines_count: usize,
 ) -> Result<(usize, usize), PasswordQualityError> {
     let hash_index = match usize::from_str_radix(&hash_prefix, 16) {
         Ok(x) => x,
         Err(_) => return Err(PasswordQualityError::BadHashPrefix),
     };
 
-    if hash_index > index.len() {
+    if hash_index >= index.len() {
         return Err(PasswordQualityError::BadHashPrefix);
     }
 
     let from = index[hash_index];
-    let to = index[hash_index + 1] - 1;
 
-    Ok((from, to))
+    if hash_index == index.len() - 1 {
+        return Ok((from, lines_count));
+    }
+
+    let to = index[hash_index + 1] - 1;
+    return Ok((from, to));
 }
 
 fn load_hashes(hash_path: String, from: usize, to: usize) -> Result<Vec<u8>, PasswordQualityError> {
@@ -270,14 +273,14 @@ fn convert_plain_hashes_to_json(hashes: Vec<u8>) -> HashesSuffixes {
 }
 
 fn add_padding(from: usize, to: usize, target: usize, lines_count: usize) -> (usize, usize) {
-    let size = to-from;
+    let size = to - from;
     if size >= target {
-        return (from, to)
+        return (from, to);
     }
-    let missing = target-size;
-    
-    if to+missing > lines_count {
-        return (from-missing, to);
+    let missing = target - size;
+
+    if to + missing > lines_count {
+        return (from - missing, to);
     }
-    return (from, to+missing);
+    return (from, to + missing);
 }
