@@ -83,7 +83,7 @@ async fn password_quality(req: HttpRequest, data: web::Data<AppState>) -> impl R
     let lines_count = data.lines_count;
 
     let (from, to) = find_in_index(String::from(prefix), &index, lines_count)?;
-    let (from_padded, to_padded) = add_padding(from, to, 1000, lines_count);
+    let (from_padded, to_padded) = add_padding(from, to, 1024, lines_count);
     let hashes = load_hashes(hashes_file_path, from_padded, to_padded)?;
 
     let format = req.match_info().get("format").unwrap_or("text");
@@ -218,7 +218,7 @@ fn find_in_index(
     let from = index[hash_index];
 
     if hash_index == index.len() - 1 {
-        return Ok((from, lines_count));
+        return Ok((from, lines_count + 1));
     }
 
     let to = index[hash_index + 1] - 1;
