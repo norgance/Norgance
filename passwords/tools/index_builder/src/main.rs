@@ -1,32 +1,16 @@
-extern crate rusqlite;
-
 use std::fs::File;
 use std::io::prelude::*;
-use std::io::BufReader;
+use std::io::{BufReader, BufWriter};
 
 fn main() {
     let input_file_path = std::env::args().nth(1).unwrap_or(String::from("input.csv"));
-    let database_path = std::env::args()
-        .nth(2)
-        .unwrap_or(String::from("database.db"));
+    let index_file_path = std::env::args().nth(2).unwrap_or(String::from("index.csv"));
 
     let input_file = File::open(input_file_path).expect("Unable to open file");
-    let mut database = rusqlite::Connection::open(database_path).expect("Unable to open database");
-
-    database
-        .execute(
-            "CREATE TABLE IF NOT EXISTS hashes (
-                  hash           TEXT PRIMARY KEY NOT NULL,
-                  from_line      INTEGER NOT NULL,
-                  to_line        INTEGER NOT NULL
-                  ) WITHOUT ROWID",
-            rusqlite::params![],
-        )
-        .expect("Unable to create the table hashes.");
-    
-    let transaction = database.transaction().expect("Unable to start transaction");
-
+    let output_file = File::create(index_file_path).expect("Unable to open index file");
     let input_buffer = BufReader::new(input_file);
+    let mut output_buffer = BufWriter::new(output_file);
+
     let mut current_line_number = 0u64;
     let mut from_line_number = 0u64;
     let mut current_hash_prefix = String::from("");
@@ -35,20 +19,29 @@ fn main() {
         let hash_prefix: String = unwrapped_line.chars().take(5).collect();
         if hash_prefix != current_hash_prefix {
             if current_line_number >= 1 {
-                register_hash(&transaction, current_hash_prefix, from_line_number, current_line_number - 1);
+                register_hash(
+                    &mut output_buffer,
+                    current_hash_prefix,
+                    from_line_number,
+                    current_line_number - 1,
+                );
             }
             current_hash_prefix = hash_prefix;
             from_line_number = current_line_number;
         }
         current_line_number += 1;
     }
-    register_hash(&transaction, current_hash_prefix, from_line_number, current_line_number - 1);
-    transaction.commit().expect("Unable to commit");
+    register_hash(
+        &mut output_buffer,
+        current_hash_prefix,
+        from_line_number,
+        current_line_number - 1,
+    );
+    output_buffer.flush().unwrap();
 }
 
-fn register_hash(transaction: &rusqlite::Transaction, hash: String, from: u64, to: u64) {
-    transaction.execute(
-        "INSERT INTO hashes (hash, from_line, to_line) VALUES (?1, ?2, ?3)",
-        rusqlite::params![hash, from as i64, to as i64],
-    ).expect("Unable to insert hash into database");
+fn register_hash(output: &mut BufWriter<std::fs::File>, hash: String, from: u64, to: u64) {
+    output
+        .write(format!("{},{},{}\n", hash, from, to).as_bytes())
+        .expect("Unable to write to output");
 }
