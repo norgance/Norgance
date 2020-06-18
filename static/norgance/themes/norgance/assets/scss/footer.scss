@@ -1,0 +1,18 @@
+footer {
+  background: #c0c0c0;
+  padding: 1em 2em;
+  display: flex;
+  flex-wrap: wrap;
+  ul {
+    margin:0;
+    & > li  {
+      display: inline-block;
+      margin-right: 0.5em;
+      margin-bottom: 0;
+    }
+    flex-grow: 1;
+  }
+  p {
+    margin-bottom: 0;
+  }
+}

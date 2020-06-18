@@ -1,0 +1,75 @@
+baseURL = "https://norgance.com/"
+languageCode = "en"
+title = "Norgance"
+subtitle = "Bonjour les amis"
+theme = "norgance"
+
+[markup.goldmark.renderer]
+unsafe = true
+
+[sitemap]
+  changefreq = "monthly"
+  priority = 0.5
+  filename = "sitemap.xml"
+
+[params]
+  favicon = ""
+  site_logo = ""
+  description = "The last theme you'll ever need. Maybe."
+  facebook = ""
+  twitter = ""
+  instagram = ""
+  youtube = ""
+  github = ""
+  gitlab = ""
+  linkedin = ""
+  mastodon = ""
+  slack = ""
+  stackoverflow = ""
+  rss = ""
+  # choose a background color from any on this page: http://tachyons.io/docs/themes/skins/ and preface it with "bg-"
+  background_color_class = "bg-black"
+  # featured_image = "/images/gohugo-default-sample-hero-image.jpg"
+  recent_posts_number = 2
+
+  DefaultContentLanguage = "en"
+  copyright = "Everything is mine"
+  subtitle = "A worldwide online nation for everyone."
+  loginLabel = "Log in"
+  signupLabel = "Apply for citizenship"
+  footerText = "A worldwide nation for everyone."
+
+[languages]
+  [languages.en]
+    weight = 1
+    title = "Norgance"
+    languageCode = "en"
+    languageName = "English"
+    [languages.en.params]
+      linkedin = "https://linkedin.com/whoever"
+  [languages.fr]
+    weight = 2
+    title = "Norgance"
+    subtitle = "Une nation mondiale et en ligne pour tous."
+    footerText = "Une nation mondiale et en ligne pour tous."
+    loginLabel = "Connection"
+    signupLabel = "Devenir citoyen"
+    languageCode = "fr"
+    languageName = "Français"
+    [languages.fr.params]
+      linkedin = "https://linkedin.com/fr/whoever"
+      [languages.fr.params.navigation]
+        help = "Aide"
+  [languages.es]
+    weight = 2
+    title = "Norgance"
+    subtitle = "Una nación global y en línea para todos."
+    footerText = "Una nación global y en línea para todos."
+    loginLabel = "conexión"
+    signupLabel = "Solicitar la ciudadanía"
+    languageCode = "es"
+    languageName = "Español"
+    [languages.es.params]
+      linkedin = "https://linkedin.com/fr/whoever"
+      [languages.es.params.navigation]
+        help = "Aide"

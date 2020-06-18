@@ -1,0 +1,29 @@
+<header>
+  <div class="header-top">
+    <section class="norgance-brand">
+      <h1 class="title">
+        {{ $norgance := resources.Get "img/norgance.svg" | resources.Fingerprint }}
+        {{ $flag := resources.Get "img/flag-norgance.svg" | resources.Fingerprint }}
+        <a href="{{ .Site.Home.RelPermalink }}"><img alt="{{ .Title }}" src="{{ $norgance.Permalink }}"
+            height="40" /></a>
+        <img alt=""
+          aria-label="The Norgance flag, composed of 3 diagonal stripes from the bottom left to the top right, white, blue, and white."
+          src="{{ $flag.Permalink }}" class="flag" height="40" />
+      </h1>
+      <p class="subtitle">{{ .Param "subtitle" }}</p>
+    </section>
+
+    <section class="signup-login">
+      <a class="button button-outline" href="https://norgance.net">{{ .Param "loginLabel"}}</a>
+      <a class="button button-rainbow" href="https://norgance.net">{{ .Param "signupLabel"}}</a>
+    </section>
+  </div>
+  <ul class="rainbow">
+    {{ range .Translations }}
+    <li class="list f5 f4-ns fw4 dib pr3">
+      <a class="hover-white no-underline white-90" href="{{ .Permalink }}">{{ .Language.LanguageName }}</a>
+    </li>
+    {{ end}}
+  </ul>
+  <hr>
+</header>

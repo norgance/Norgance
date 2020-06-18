@@ -1,0 +1,251 @@
+header {
+  hr {
+    display: none;
+  }
+  .header-top {
+    background: white;
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    padding: 0 1.5rem 0 1.5rem;
+
+    .norgance-brand {
+      flex-grow: 1;
+    }
+    .signup-login {
+      margin: 1em;
+      .button {
+        margin-right: 0.25em;
+        margin-left: 0.25em;
+        margin-top: 0.25em;
+        margin-bottom: 0.25em;
+      }
+    }
+  }
+
+  h1.title {
+    //font-size: 3.5rem;
+    line-height: 0.85;
+    margin: 0;
+    padding: 1.5rem 0 0.2rem 0;
+    img {
+      height: 0.85em;
+      &.flag {
+        margin: 0 0.1em 0.1em 0.05em;
+        height: 0.666em;
+      }
+    }
+  }
+
+  .subtitle {
+    margin-left: 0.35rem;
+    margin-bottom: 1rem;
+    //font-size: 1.2rem;
+  }
+}
+
+.rainbow {
+  list-style-type: none;
+  //font-size: 1.2rem;
+  line-height: 1.8;
+  text-align: right;
+  padding-right: 0.5em;
+  margin-bottom: 0;
+  li {
+    margin-bottom: 0;
+    display: inline-block;
+    margin-left: 0.33em;
+  }
+  color: white;
+  a {
+    color: white;
+    &:visited {
+      color: #eee;
+    }
+    &:hover {
+      color: #606c76;
+    }
+  }
+  background: linear-gradient(
+    124deg,
+    #ff2400,
+    #e81d1d,
+    darken(#e8b71d, 20%),
+    #e3e81d,
+    #1de840,
+    #1ddde8,
+    #2b1de8,
+    purple,
+    pink,
+    #ff2400,
+    #e81d1d,
+    #e8b71d,
+    #e3e81d,
+    #1de840,
+    #1ddde8,
+    #2b1de8,
+    lightcoral,
+    pink
+  );
+  background-size: 1000% 100%;
+
+  animation: rainbow 120s linear infinite;
+}
+
+.button-rainbow {
+  background: linear-gradient(
+    124deg,
+    #ff2400,
+    #e81d1d,
+    darken(#e8b71d, 20%),
+    #e3e81d,
+    #1de840,
+    #1ddde8,
+    #2b1de8,
+    purple,
+    pink,
+    #ff2400,
+    #e81d1d,
+    #e8b71d,
+    #e3e81d,
+    #1de840,
+    #1ddde8,
+    #2b1de8,
+    lightcoral,
+    pink
+  );
+  background-size: 2000% 100%;
+
+  animation: rainbow2 240s linear infinite;
+  border-color: rgba(0, 0, 0, 0.225);
+  &:hover {
+    border-color: rgba(0, 0, 0, 0.55);
+    background: linear-gradient(
+      124deg,
+      darken(#ff2400, 10%),
+      darken(#e81d1d, 10%),
+      darken(#e8b71d, 10%),
+      darken(#e3e81d, 10%),
+      darken(#1de840, 10%),
+      darken(#1ddde8, 10%),
+      darken(#2b1de8, 10%),
+      darken(purple, 10%),
+      darken(pink, 10%),
+      darken(#ff2400, 10%),
+      darken(#e81d1d, 10%),
+      darken(#e8b71d, 10%),
+      darken(#e3e81d, 10%),
+      darken(#1de840, 10%),
+      darken(#1ddde8, 10%),
+      darken(#2b1de8, 10%),
+      darken(lightcoral, 10%),
+      darken(pink, 10%)
+    );
+    background-size: 2000% 100%;
+  }
+}
+
+header {
+  .button.button-outline {
+    color: #002395;
+    border-color: #002395;
+    &:hover {
+      color: lighten(#002395, 13%);
+      border-color: ligten(#002395, 13%);
+    }
+  }
+}
+
+@keyframes rainbow {
+  0% {
+    background-position: 100% 0;
+  }
+  100% {
+    background-position: 0% 0;
+  }
+}
+@keyframes rainbow2 {
+  0% {
+    background-position: 100% 0;
+  }
+  50% {
+    background-position: 0% 0;
+  }
+  100% {
+    background-position: 0% 0;
+  }
+}
+
+/*@keyframes animColor {
+  0% {
+    color: #a3f050;
+    color: hsl(89, 85%, 63%);
+  }
+  10% {
+    color: #53f050;
+    color: hsl(119, 85%, 63%);
+  }
+  20% {
+    color: #50f09d;
+    color: hsl(149, 85%, 63%);
+  }
+  30% {
+    color: #50f0ee;
+    color: hsl(179, 85%, 63%);
+  }
+  40% {
+    color: #50a3f0;
+    color: hsl(209, 85%, 63%);
+  }
+  50% {
+    color: #5053f0;
+    color: hsl(239, 85%, 63%);
+  }
+  60% {
+    color: #9d50f0;
+    color: hsl(269, 85%, 63%);
+  }
+  70% {
+    color: #ee50f0;
+    color: hsl(299, 85%, 63%);
+  }
+  80% {
+    color: #f050a3;
+    color: hsl(329, 85%, 63%);
+  }
+  90% {
+    color: #f05053;
+    color: hsl(359, 85%, 63%);
+  }
+  95% {
+    color: #f09d50;
+    color: hsl(29, 85%, 63%);
+  }
+  100% {
+    color: #a3f050;
+    color: hsl(89, 85%, 63%);
+  }
+}
+*/
+
+@media screen and (max-width: 39.9rem) {
+  header {
+    .header-top {
+      text-align: center;
+      h1 {
+        font-size: 2.6em;
+      }
+      .subtitle {
+        margin-left: 0;
+      }
+      .signup-login {
+        margin: 0 1em 0.75em 1em;
+        text-align: center;
+        flex-grow: 1;
+        .button {
+          padding: 0 2em;
+        }
+      }
+    }
+  }
+}

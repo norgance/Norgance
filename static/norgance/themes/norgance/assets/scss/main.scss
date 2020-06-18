@@ -1,0 +1,27 @@
+$backgroundColour: #F5F5F5;
+
+@import "../css/normalize";
+@import "../css/milligram";
+
+@import "./header";
+@import "./content";
+@import "./footer";
+
+a {
+  text-decoration: underline;
+
+  &:visited {
+    color: darken(purple, 6%);
+  }
+}
+
+body {
+  background: $backgroundColour;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+
+  main {
+    flex-grow: 1;
+  }
+}
