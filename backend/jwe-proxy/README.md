@@ -20,8 +20,10 @@ sequenceDiagram
     Client->>+PublicKeyServer: What is the Api server public key ? (TLS)
     PublicKeyServer->>-Client: This is the public key (TLS)
 
-    Client->>+ApiServer: Query and random symmetric key for response (JWE encrypted with public key)
-    ApiServer->>-Client: Response (JWE encrypted with the symmetric key)
+    Client->>+JweProxy: Query and random symmetric key for response (JWE encrypted with public key)
+    JweProxy->>+ApiServer: Query (trusted network)
+    ApiServer->>-JweProxy: Response (trusted network)
+    JweProxy->>-Client: Response (JWE encrypted with the symmetric key)
 ```
 
 Ideally, the public key server should use a different HTTPS chain of trust than other Norgance's client and API server.
