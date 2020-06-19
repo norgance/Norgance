@@ -8,9 +8,9 @@ A non-perfect mechanism to improve the situation named [HTTP Public Key Pinning]
 
 In 2020 we don't have a clear standard solution for this problem. Therefore we implement a new layer of encryption of the data exchanges, on top of HTTPS, using JWE (JSON Web Encryption).
 
-However due to technical constraints, we don't have a chain of trust and someone targetting Norgance could build a different version sending the data trough a third-party server. We plan to sign the frontend with PGP but it will be a manual operation that virtually all users will not do.
+However due to technical constraints, we don't have a chain of trust and someone targetting Norgance could build a different version sending the data trough a third-party server. We plan to sign the frontend with PGP but checking the signature will be a manual operation that virtually all users will not do.
 
-So this clearly overengineered tentative to improve privacy as art. It will help to protect privacy when a system is spying on all websites, but it will not do much a targetted attack on a specific user using Norgance, except slightly increasing the human cost of such an attack.
+So this clearly overengineered tentative to improve privacy is art. It will help to protect privacy when a system is spying on all websites, but it will not do much a targetted attack on a specific user using Norgance, except slightly increasing the human cost of such an attack.
 
 
 ## How will it work
@@ -23,3 +23,9 @@ sequenceDiagram
     Client->>+ApiServer: Query and random symmetric key for response (JWE encrypted with public key)
     ApiServer->>-Client: Response (JWE encrypted with the symmetric key)
 ```
+
+Ideally, the public key server should use a different HTTPS chain of trust than other Norgance's client and API server.
+
+## Technologies
+
+This proxy will be between the client and Hasura. It is written in Golang because good JWE support in Rust is not really there yet.
