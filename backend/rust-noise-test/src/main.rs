@@ -37,11 +37,17 @@ fn main() {
     let mut buf_a = vec![0u8; 65535];
     let mut buf_b = vec![0u8; 65535];
 
-    let len_a = initiator
+    let mut len_a = initiator
         .write_message(b"Hello World !", &mut buf_a)
         .unwrap();
 
-    let len_b = responder.read_message(&buf_a[0..len_a], &mut buf_b).expect("oops");
+    let mut len_b = responder.read_message(&buf_a[0..len_a], &mut buf_b).expect("oops");
 
     println!("client said: {}", String::from_utf8_lossy(&buf_b[..len_b]));
+
+    len_a = responder.write_message(b"ok cool", &mut buf_a).unwrap();
+
+    len_b = initiator.read_message(&buf_a[0..len_a], &mut buf_b).expect("read oops");
+
+    println!("server said: {}", String::from_utf8_lossy(&buf_b[..len_b]));
 }
