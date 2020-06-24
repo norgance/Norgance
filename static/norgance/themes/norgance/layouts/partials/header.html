@@ -14,14 +14,14 @@
     </section>
 
     <section class="signup-login">
-      <a class="button button-outline" href="https://norgance.net">{{ .Param "loginLabel"}}</a>
-      <a class="button button-rainbow" href="https://norgance.net">{{ .Param "signupLabel"}}</a>
+      <a class="button button-outline" href="https://norgance.net/#/login?language={{ $.Site.LanguageCode | default "en" }}">{{ .Param "loginLabel"}}</a>
+      <a class="button button-rainbow" href="https://norgance.net/#/register-citizenship?language={{ $.Site.LanguageCode | default "en" }}">{{ .Param "signupLabel"}}</a>
     </section>
   </div>
-  <ul class="rainbow">
+  <ul class="rainbow language-selector">
     {{ range .Translations }}
-    <li class="list f5 f4-ns fw4 dib pr3">
-      <a class="hover-white no-underline white-90" href="{{ .Permalink }}">{{ .Language.LanguageName }}</a>
+    <li>
+      <a href="{{ .Permalink }}" lang="{{ .Language.Lang }}">{{ .Language.LanguageName }}</a>
     </li>
     {{ end}}
   </ul>

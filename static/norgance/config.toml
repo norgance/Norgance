@@ -36,8 +36,11 @@ unsafe = true
   copyright = "Everything is mine"
   subtitle = "A worldwide online nation for everyone."
   loginLabel = "Log in"
-  signupLabel = "Apply for citizenship"
+  signupLabel = "Become a citizen"
   footerText = "A worldwide nation for everyone."
+  cookies = "This website uses cookies."
+  cookiesOk = "Accept"
+  cookiesBad = "Refuses"
 
 [languages]
   [languages.en]
@@ -52,6 +55,9 @@ unsafe = true
     title = "Norgance"
     subtitle = "Une nation mondiale et en ligne pour tous."
     footerText = "Une nation mondiale et en ligne pour tous."
+    cookies = "Ce site web utilise des témoins de connexion (cookies)."
+    cookiesOk = "Accepter"
+    cookiesBad = "Refuser"
     loginLabel = "Connection"
     signupLabel = "Devenir citoyen"
     languageCode = "fr"
@@ -66,7 +72,7 @@ unsafe = true
     subtitle = "Una nación global y en línea para todos."
     footerText = "Una nación global y en línea para todos."
     loginLabel = "conexión"
-    signupLabel = "Solicitar la ciudadanía"
+    signupLabel = "Conviértase en ciudadano"
     languageCode = "es"
     languageName = "Español"
     [languages.es.params]

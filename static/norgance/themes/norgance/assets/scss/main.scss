@@ -4,6 +4,7 @@ $backgroundColour: #F5F5F5;
 @import "../css/milligram";
 
 @import "./header";
+@import "./cookies";
 @import "./content";
 @import "./footer";
 
@@ -15,12 +16,14 @@ a {
   }
 }
 
+html, body {
+  display: flex;
+  flex-direction: column;
+}
+
 body {
   background: $backgroundColour;
   min-height: 100vh;
-  display: flex;
-  flex-direction: column;
-
   main {
     flex-grow: 1;
   }

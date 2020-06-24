@@ -1,5 +1,6 @@
 footer {
   background: #c0c0c0;
+  background: linear-gradient(180deg, #bbb, #c0c0c0);
   padding: 1em 2em;
   display: flex;
   flex-wrap: wrap;
@@ -14,5 +15,11 @@ footer {
   }
   p {
     margin-bottom: 0;
+  }
+}
+
+@media screen and (max-width: 39.9rem) {
+  footer p {
+    margin-top: 1.5em;
   }
 }

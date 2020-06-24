@@ -1,0 +1,2 @@
+{{ $script := resources.Get "js/script.js" |  resources.Fingerprint}}
+<script async defer src="{{ $script.Permalink }}" integrity="{{ $script.Data.Integrity }}"></script>
