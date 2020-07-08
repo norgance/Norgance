@@ -119,10 +119,17 @@ fn pack(
 ) -> Result<Vec<u8>, ChatrouilleError> {
   let mode_byte = mode.clone() as u8;
 
-  let compressed = match compressor::compress(data) {
+  let mut compressed = match compressor::compress(data) {
     Some(compressed) => compressed,
     None => return Err(ChatrouilleError::CompressionError),
   };
+
+  // To slightly improve the privacy, we pad all
+  // compressed messages with zeros to have a final size which is a multiple of 32.
+  let diff_with_32 = compressed.len() % 32;
+  if diff_with_32 != 0 {
+    compressed.append(&mut vec![0; 32 - diff_with_32]);
+  }
 
   let symmetric_key = match key_utils::derive_shared_secret_to_sym_key(shared_secret, &[mode_byte])
   {
