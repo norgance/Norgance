@@ -105,7 +105,7 @@ fn main() {
 
     let payload = chatrouille::unpack_query(canard, &bob_secret);
     match payload {
-        Some((payload, mode, shared_secret)) => {
+        Ok((payload, mode, shared_secret)) => {
             println!(
                 "payload: {} | mode: {:?}",
                 std::str::from_utf8(&payload).unwrap_or("prout"),
@@ -118,18 +118,18 @@ fn main() {
             .unwrap();
             let payload_response = chatrouille::unpack_response(canard_response, &shared_secret);
             match payload_response {
-                Some(payload) => {
+                Ok(payload) => {
                     println!(
                         "payload response: {}",
                         std::str::from_utf8(&payload).unwrap_or("prout"),
                     );
                 }
-                None => {
+                Err(_) => {
                     println!("oops 1");
                 }
             }
         }
-        None => {
+        Err(_) => {
             println!("oops");
         }
     };
