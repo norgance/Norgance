@@ -1,0 +1,18 @@
+[package]
+name = "chatrouille"
+version = "0.1.0"
+authors = ["Norgance <66333061+norgance-admin@users.noreply.github.com>"]
+edition = "2018"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+base64 = "0.12.3"
+#branca = "^0.9.1"
+orion = "0.15.2"
+x448 = "0.6.0"
+rand = "0.7.3"
+#rand_core = { version = "0.5.1", default-features = false }
+blake2-rfc = "0.2.18"
+libflate = "1.0.2"
+thiserror = "1.0.20"
