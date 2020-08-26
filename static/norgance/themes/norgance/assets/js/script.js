@@ -21,7 +21,7 @@
 
     // Do not redirect if visiting between pages
     // It also make it work when the user doesn't have cookies
-    if (document.referrer.indexOf(location.origin) === 0) {
+    if (!document.referrer || document.referrer.indexOf(location.origin) === 0) {
       return;
     }
 

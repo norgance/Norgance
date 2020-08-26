@@ -18,7 +18,8 @@
       <a class="button button-rainbow" href="https://norgance.net/#/register-citizenship?language={{ $.Site.LanguageCode | default "en" }}">{{ .Param "signupLabel"}}</a>
     </section>
   </div>
-  <ul class="rainbow language-selector">
+  <hr class="rainbow"/>
+  <ul class="language-selector">
     {{ range .Translations }}
     <li>
       <a href="{{ .Permalink }}" lang="{{ .Language.Lang }}">{{ .Language.LanguageName }}</a>

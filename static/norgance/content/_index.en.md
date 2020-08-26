@@ -6,4 +6,10 @@ draft: false
 
 Norgance is a nation for everyone, whoever and wherever you are. Norgance does not have any landmark, it is an online digital nation.
 
-Applying for a citizenship will allow you to do procedures that your current nations may or may not allow you. It’s free and taxes will never be mandatory. Norgance allows and encourages multiple citizenships. You can keep your current citizenships if you decide to become a citizen of Norgance.
+[Applying for citizenship](https://norgance.net/#/register-citizenship?language=en) will allow you to do procedures that your current nation may or may not allow you. Such as marrying the person you love or easily registering your children.
+
+It’s free and taxes will never be mandatory. Norgance allows and encourages multiple citizenships. You can and probably should keep your current nation citizenship if you decide to become a citizen of Norgance.
+
+[Protecting your privacy]({{<ref "privacy">}}) is very important to Norgance. The nation asks you minimum information and it organizes your data in a way that make it extremely difficult for anyone but you to access it.
+
+[You can contribute]({{<ref "contribute">}}) to Norgance, if you want to add new services or improve the documentation for example.

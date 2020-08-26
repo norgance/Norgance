@@ -12,10 +12,13 @@ unsafe = true
   priority = 0.5
   filename = "sitemap.xml"
 
+[minify]
+  minifyOutput = true
+
 [params]
   favicon = ""
   site_logo = ""
-  description = "The last theme you'll ever need. Maybe."
+  description = "Norgance, a worldwide online nation for everyone."
   facebook = ""
   twitter = ""
   instagram = ""
@@ -55,6 +58,7 @@ unsafe = true
     title = "Norgance"
     subtitle = "Une nation mondiale et en ligne pour tous."
     footerText = "Une nation mondiale et en ligne pour tous."
+    description = "Norgance, une nation mondiale et en ligne pour tous."
     cookies = "Ce site web utilise des témoins de connexion (cookies)."
     cookiesOk = "Accepter"
     cookiesBad = "Refuser"

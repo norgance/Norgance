@@ -1,4 +1,13 @@
 main {
+  padding: 2em;
+  align-self: center;
+  width: unquote("min(80rem, 100%)");
   max-width: 80rem;
-  margin: 2em;
+}
+
+.highlight pre {
+  border-left: none;
+  code {
+    background: initial;
+  }
 }

@@ -1,4 +1,5 @@
 $backgroundColour: #F5F5F5;
+$linkColour: #002868;
 
 @import "../css/normalize";
 @import "../css/milligram";
@@ -9,9 +10,13 @@ $backgroundColour: #F5F5F5;
 
 a {
   text-decoration: underline;
+  color: $linkColour;
 
   &:visited {
-    color: darken(purple, 6%);
+    color: darken($linkColour, 6%);
+  }
+  &:hover {
+    color: darken($linkColour, 10%);
   }
 }
 
