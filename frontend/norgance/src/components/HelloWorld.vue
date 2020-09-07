@@ -38,6 +38,12 @@ export default {
   props: {
     msg: String,
   },
+  async mounted() {
+    console.log('mounted');
+    const wasm = await import('../../rust/pkg');
+    const greet = wasm.greet;
+    greet();
+  },
 };
 </script>
 
