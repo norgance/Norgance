@@ -1,0 +1,186 @@
+$surface: #c0c0c0;
+$button-highlight: #ffffff;
+$button-face: #dfdfdf;
+$button-shadow: #808080;
+$window-frame: #0a0a0a;
+$border-raised-outer: inset -1px -1px $window-frame, inset 1px 1px $button-highlight;
+$border-raised-inner: inset -2px -2px $button-shadow, inset 2px 2px $button-face;
+$border-sunken-outer: inset -1px -1px $button-highlight, inset 1px 1px $window-frame;
+$border-sunken-inner: inset -2px -2px $button-face, inset 2px 2px $button-shadow;
+$border-field: inset -1px -1px $button-highlight,
+    inset 1px 1px $button-shadow, inset -2px -2px $button-face,
+    inset 2px 2px $window-frame;
+
+body {
+  background: $surface;
+}
+
+
+/*-------------------------------------------*\
+    Buttons
+\*-------------------------------------------*/
+
+button.w98 {
+  font-size: 11px;
+  box-sizing: border-box;
+  border: none;
+  background: $surface;
+  box-shadow: $border-raised-outer, $border-raised-inner;
+  border-radius: 0;
+
+  min-width: 75px;
+  min-height: 23px;
+  padding: 0 12px;
+
+  &:not(:disabled):active {
+    box-shadow: $border-sunken-outer, $border-sunken-inner;
+    padding: 2px 11px 0 13px;
+  }
+  &:focus {
+    outline: 1px dotted #000000;
+    outline-offset: -4px;
+  }
+
+  &::-moz-focus-inner {
+    border: 0;
+  }
+}
+
+@media (not(hover)) {
+  button.w98:not(:disabled):hover {
+    box-shadow: $border-sunken-outer, $border-sunken-inner;
+  }
+}
+
+/*-------------------------------------------*\
+    Tabs
+\*-------------------------------------------*/
+
+$tab-border: 1px solid #888;
+$tab-bg: $surface;
+
+[role="tabpanel"], .content {
+  position: relative;
+  z-index: 2;
+}
+
+menu[role="tablist"], #nav.w98 {
+  position: relative;
+  margin: 0 0 -2px 0;
+  text-indent: 0;
+  list-style-type: none;
+  display: flex;
+  padding-left: 3px;
+  button {
+      border-top-left-radius: 3px;
+      border-top-right-radius: 3px;
+      z-index: 1;
+      display: block;
+      color: #222;
+      text-decoration: none;
+      min-width: unset;
+      &[aria-selected="true"],
+      &.router-link-active {
+          padding-bottom: 2px;
+          margin-top: -2px;
+          background-color: $surface;
+          position: relative;
+          z-index: 8;
+          margin-left: -3px;
+          margin-bottom: 1px;
+      }
+      &:focus {
+          outline: 1px dotted #222;
+          outline-offset: -4px;
+      }
+      top: 3px;
+      background: $surface;
+      box-shadow: inset 1px 1px #fff, inset 2px 2px #dfdfdf, inset -1px 0 black, inset -2px 0 #7f7f7f;
+      border-top-right-radius: 3px;
+      border-top-left-radius: 3px;
+      border-bottom: 2px solid transparent;
+      &:first-of-type::before {
+          content: "";
+          display: block;
+          position: absolute;
+          z-index: -1;
+          top: 100%;
+          left: 0;
+          height: 2px;
+          width: 0;
+          border-left: 1px solid #fff;
+          border-right: 1px solid #dfdfdf;
+      }
+      &[aria-selected="true"],&.router-link-active {
+          top: 2px;
+          margin-right: -1px;
+          margin-top: -4px;
+          &:first-of-type {
+              left: 0;
+          }
+      }
+      padding: 3px 12px;
+  }
+  &.justified {
+      button {
+          flex-grow: 1;
+          text-align: center;
+      }
+  }
+}
+
+[role="tabpanel"], .content {
+  padding: 14px;
+  clear: both;
+  background: $tab-bg;
+  //border: $tab-border;
+  position: relative;
+  z-index: 2;
+  margin-bottom: 9px;
+}
+
+[role="tabpanel"], .content {
+  box-shadow: inset 1px 1px white, inset 2px 2px #dfdfdf, inset -1px -1px #0a0a0a, inset -2px -2px gray;
+}
+
+/**
+Inputs
+**/
+
+input[type="text"].w98,
+input[type="password"].w98,
+input[type="email"].w98,
+select.w98,
+textarea.w98 {
+  padding: 3px 4px;
+  border: none;
+  box-shadow: $border-field;
+  background-color: $button-highlight;
+  box-sizing: border-box;
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  appearance: none;
+  border-radius: 0;
+}
+
+input[type="text"].w98,
+input[type="password"].w98,
+input[type="email"].w98,
+select.w98 {
+  height: 21px;
+}
+
+input[type="text"].w98,
+input[type="password"].w98,
+input[type="email"].w98 {
+  /* For some reason descenders are getting cut off without this */
+  line-height: 2;
+}
+
+select.w98:focus,
+input[type="text"].w98:focus,
+input[type="password"].w98:focus,
+input[type="email"].w98:focus,
+textarea.w98:focus {
+  outline: 1px dotted black;
+}

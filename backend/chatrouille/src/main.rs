@@ -5,10 +5,15 @@ extern crate x448;
 mod chatrouille;
 mod compressor;
 mod key_utils;
+mod server;
 //extern crate branca;
 //extern crate orion;
 
 fn main() {
+
+    let chatrouille_mode = std::env::args().nth(1).unwrap_or(String::from("lol"));
+
+    server::server_main();
     let duck = "🦆".as_bytes();
     println!("duck: {:?}", duck);
 

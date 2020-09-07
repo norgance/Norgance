@@ -7,12 +7,14 @@ edition = "2018"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
+anyhow = "1.0.31"
 base64 = "0.12.3"
-#branca = "^0.9.1"
-orion = "0.15.2"
-x448 = "0.6.0"
-rand = "0.7.3"
-#rand_core = { version = "0.5.1", default-features = false }
 blake2-rfc = "0.2.18"
+futures = "0.3"
+hyper = "0.13"
 libflate = "1.0.2"
+orion = "0.15.2"
+rand = "0.7.3"
 thiserror = "1.0.20"
+tokio = { version = "0.2", features = ["full"] }
+x448 = "0.6.0"
