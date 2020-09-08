@@ -10,6 +10,6 @@ registerPromiseWorker(async (message) => {
   if (typeof rust[functionName] !== 'function') {
     throw new TypeError(`Unknown function ${functionName}`);
   }
-  
-  return rust[functionName].apply(rust, message.args);
+
+  return rust[functionName](...message.args);
 });

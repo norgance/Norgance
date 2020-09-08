@@ -1,6 +1,6 @@
 import PromiseWorker from 'promise-worker';
 
-const worker = new Worker('./rustWorkerGlue.js', { name: 'rustWorkerGlue', type: 'module' });
+const worker = new Worker('./rustWorker.js', { name: 'rustWorker', type: 'module' });
 const promiseWorker = new PromiseWorker(worker);
 
 export async function derivateCitizenPrimaryKey(username, password) {

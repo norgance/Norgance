@@ -15,5 +15,5 @@ module.exports = {
     'no-debugger': process.env.NODE_ENV === 'production' ? 'warn' : 'off',
     'prefer-destructuring': 'off',
   },
-  ignorePatterns: ['**/rust/**', '**/rustWorkerGlue.js'],
+  ignorePatterns: ['**/rust/**', '**/rustWorker.js'],
 };
