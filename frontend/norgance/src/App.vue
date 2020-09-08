@@ -3,9 +3,15 @@
     <div id="nav" class="w98">
       <router-link tag="button" class="w98" to="/" exact>Home</router-link>
       <router-link tag="button" to="/about" class="w98">About</router-link>
-      <router-link tag="button" class="w98" :to="{
-        name: 'CitizenApplicationStart',
-        }"> Become a citizen</router-link>
+      <router-link
+        tag="button"
+        class="w98"
+        :to="{
+          name: 'CitizenApplicationStart',
+        }"
+      >
+        Become a citizen</router-link
+      >
       <router-link tag="button" to="/about1" class="w98">About</router-link>
       <router-link tag="button" to="/about2" class="w98">About</router-link>
       <router-link tag="button" to="/about2" class="w98">About</router-link>
@@ -18,10 +24,22 @@
       <router-link tag="button" to="/about9" class="w98">About</router-link>
       <router-link tag="button" to="/about10" class="w98">About</router-link>
       <router-link tag="button" to="/about11" class="w98">About</router-link>
+      <rust-check />
     </div>
-    <router-view class="content"/>
+    <router-view class="content" />
   </div>
 </template>
+
+<script>
+import RustCheck from './components/RustCheck.vue';
+
+export default {
+  name: 'App',
+  components: {
+    RustCheck,
+  },
+};
+</script>
 
 <style lang="scss">
 //@import "~98.css/dist/98.css";
