@@ -10,4 +10,11 @@ export async function derivateCitizenPrimaryKey(username, password) {
   });
 }
 
+export async function norgancePasswordHash(password, size = 16) {
+  return promiseWorker.postMessage({
+    function: 'norgance_password_hash',
+    args: [password, size],
+  });
+}
+
 export default promiseWorker;

@@ -25,7 +25,7 @@ pub fn derivate_citizen_primary_key(name: &str, password: &str) -> String {
         version: argon2::Version::Version13,
         mem_cost: 4096,
         //time_cost: 10,
-        time_cost: 3,
+        time_cost: 4,
         lanes: 1,
         thread_mode: argon2::ThreadMode::Sequential,
         secret: &[],
@@ -45,4 +45,29 @@ pub fn derivate_citizen_primary_key(name: &str, password: &str) -> String {
         .set_variant(uuid::Variant::Future)
         .build()
         .to_string();
+}
+
+#[wasm_bindgen]
+pub fn norgance_password_hash(password: &str, size: usize) -> String {
+    // The first step is to compute a sha1 of the password
+    // because our passwords datasets provides sha1 hashes
+    let mut sha1_hasher = sha1::Sha1::new();
+    sha1_hasher.update(password.as_bytes());
+    let password_sha1 = sha1_hasher.digest().bytes();
+
+    // The next step is about computing a blake2b of the password
+    // with some salt specific to norgance. So someone intercepting
+    // the request on the network would have to spend quite a lot
+    // of ressources to find out what was the origin of the hash
+
+    // The salt is norgance- followed by the first 32 digits of ln(3)
+    // (prononced Hélène de Troie in French, for Helen of Troy)
+    // https://en.wikipedia.org/wiki/Nothing-up-my-sleeve_number
+
+    let hash = blake2_rfc::blake2b::blake2b(
+        size,
+        b"norgance-1.0986122886681096913952452369225",
+        &password_sha1,
+    );
+    return hex::encode(hash);
 }

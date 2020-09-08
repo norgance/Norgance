@@ -14,6 +14,9 @@ default = ["console_error_panic_hook"]
 wasm-bindgen = "0.2.63"
 rust-argon2 = "0.8"
 uuid = "0.8.1"
+hex = " 0.4.2"
+sha1 = "0.6.0"
+blake2-rfc = "0.2.18"
 
 # The `console_error_panic_hook` crate provides better debugging of panics by
 # logging them with `console.error`. This is great for development, but requires
