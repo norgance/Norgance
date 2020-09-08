@@ -3,6 +3,8 @@
 </template>
 
 <script>
+import { derivateCitizenPrimaryKey } from '../rust';
+
 export default {
   name: 'RustCheck',
   data() {
@@ -11,12 +13,9 @@ export default {
     };
   },
   async mounted() {
-    const piWorker = new Worker('../rustWorkerGlue.js', { name: 'rustWorkerGlue', type: 'module' });
-    piWorker.onmessage = (event) => {
-      console.log(event.data);
-      this.hash = event.data;
-    };
-    piWorker.postMessage('42');
+    this.hash = await derivateCitizenPrimaryKey(
+      '42', 'azerty',
+    );
   },
 };
 </script>

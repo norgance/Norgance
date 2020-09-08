@@ -1,8 +1,15 @@
-let wasm;
-// eslint-disable-next-line no-restricted-globals
-addEventListener('message', async (event) => {
-  if (!wasm) {
-    wasm = await import('../rust/pkg');
+import registerPromiseWorker from 'promise-worker/register';
+
+let rust;
+
+registerPromiseWorker(async (message) => {
+  if (!rust) {
+    rust = await import('../rust/pkg');
   }
-  postMessage(wasm.derivate_citizen_primary_key(event.data, 'azerty'));
+  const functionName = message.function;
+  if (typeof rust[functionName] !== 'function') {
+    throw new TypeError(`Unknown function ${functionName}`);
+  }
+  
+  return rust[functionName].apply(rust, message.args);
 });
