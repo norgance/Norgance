@@ -17,13 +17,13 @@ export default {
     };
   },
   async mounted() {
-    // We allow 30 seconds to load the rust environment
+    // We allow one minute to load the rust environment
     // and return a result.
     const timeoutId = setTimeout(() => {
       this.waiting = false;
       this.valid = false;
       console.error('Rust timeout');
-    }, 30000);
+    }, 60000);
 
     try {
       // We compute a hash that we already know

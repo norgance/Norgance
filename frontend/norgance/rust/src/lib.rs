@@ -19,24 +19,32 @@ pub fn greet() {
 }
 
 #[wasm_bindgen]
-pub fn derivate_citizen_primary_key(name: &str, password: &str) -> String {
+pub fn derivate_citizen_primary_key(name: &str) -> String {
     const ARGON2ID_SETTINGS: argon2::Config = argon2::Config {
         variant: argon2::Variant::Argon2id,
         version: argon2::Version::Version13,
-        mem_cost: 4096,
-        //time_cost: 10,
-        time_cost: 4,
+        // These values are low to make it fast enough
+        // on slow devices. They are mainly there to make
+        // a large scale bruteforce attack a bit more expensive,
+        // and also because it's fun.
+        // A single blake2b hash could have been good enough.
+        mem_cost: 1024, // kb
+        time_cost: 2,
         lanes: 1,
         thread_mode: argon2::ThreadMode::Sequential,
         secret: &[],
         ad: &[],
         hash_length: 16,
     };
-    const SALT: &[u8] = b"vive le roi des canards";
+    
+    // The salt is norgance- followed by the first 32 digits of ln(3)
+    // (prononced Hélène de Troie in French, for Helen of Troy)
+    // https://en.wikipedia.org/wiki/Nothing-up-my-sleeve_number
+    const SALT: &[u8] = b"norgance-1.0986122886681096913952452369225";
 
-    let input = [name.as_bytes(), &[0x1E], password.as_bytes()].concat();
+    /*let input = [name.as_bytes(), &[0x1E], password.as_bytes()].concat();*/
 
-    let hash = argon2::hash_raw(&input, SALT, &ARGON2ID_SETTINGS).unwrap();
+    let hash = argon2::hash_raw(name.as_bytes(), SALT, &ARGON2ID_SETTINGS).unwrap();
 
     let mut bytes: [u8; 16] = [0; 16];
     bytes.clone_from_slice(&hash[0..16]);

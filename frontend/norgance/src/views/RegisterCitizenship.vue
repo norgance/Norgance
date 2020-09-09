@@ -3,7 +3,7 @@
     <h1>{{ $t("hello") }}</h1>
     <p>{{ $t("congratulations") }}</p>
     <hr />
-    <p class="step-counter">{{ $t("step", { step, total: totalStep }) }}</p>
+    <p v-if="step" class="step-counter">{{ $t("step", { step, total: totalStep }) }}</p>
     <router-view>
       canard
     </router-view>
@@ -28,7 +28,7 @@ export default {
         case 'CitizenApplicationSummary':
           return '5';
         default:
-          return '?';
+          return undefined;
       }
     },
     totalStep() {
