@@ -10,9 +10,9 @@ Vue.config.productionTip = true; // false;
 
 Vue.use(VueFormulate, {
   plugins: [...formulateI18n],
-  classes: {
+  /* classes: {
     input: 'w98',
-  },
+  }, */
 });
 
 new Vue({

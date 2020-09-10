@@ -2,12 +2,12 @@
   <div>
     <FormulateForm @submit="nextStep">
       <FormulateInput
-        name="firstName"
-        :label="$t('firstName')"
-        :help="$t('firstNameHelp')"
-        :validationName="$t('firstNameValidationName')"
+        name="name"
+        :label="$t('name')"
+        :help="$t('nameHelp')"
+        :validationName="$t('nameValidationName')"
         validation="required"
-        v-model="firstName"
+        v-model="name"
         required
       />
       <FormulateInput
@@ -24,12 +24,12 @@
 export default {
   name: 'CitizenApplicationNames',
   computed: {
-    firstName: {
+    name: {
       get() {
-        return this.$store.state.citizenApplication.firstName;
+        return this.$store.state.citizenApplication.name;
       },
       set(name) {
-        this.$store.commit('citizenApplication/updateFirstName', name);
+        this.$store.commit('citizenApplication/updateName', name);
       },
     },
     familyName: {
@@ -51,23 +51,23 @@ export default {
 
 <i18n lang="yaml">
 en:
-  firstName: What is your name ?
+  name: What is your name ?
   familyName: What is your family name ?
-  firstNameHelp: Your name is required.
+  nameHelp: Your name is required.
   familyNameHelp: |
     The family name is optional.
     Leave this field empty if you do not wish to have a family name.
-  firstNameValidationName: Name
+  nameValidationName: Name
   continue: Continue
 fr:
-  firstName: Quel est votre nom ?
+  name: Quel est votre nom ?
   familyName: Quel est votre nom de famille ?
-  firstNameHelp: |
+  nameHelp: |
     Votre nom permettant de vous désigner.
     Il est obligatoire et il apparaîtra sur vos documents.
   familyNameHelp: |
     Un nom de famille est facultatif.
     Laissez ce champ libre si vous ne souhaitez pas avoir de nom de famille.
-  firstNameValidationName: Nom
+  nameValidationName: Nom
   continue: Continuer
 </i18n>

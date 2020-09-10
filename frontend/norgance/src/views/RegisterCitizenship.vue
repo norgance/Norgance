@@ -4,9 +4,11 @@
     <p>{{ $t("congratulations") }}</p>
     <hr />
     <p v-if="step" class="step-counter">{{ $t("step", { step, total: totalStep }) }}</p>
+    <transition name="component-fade" mode="out-in">>
     <router-view>
       canard
     </router-view>
+    </transition>
   </div>
 </template>
 

@@ -1,5 +1,7 @@
 body {
   font-family: Roboto, Arial, Helvetica, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  background: #ECEFF1;
+  //background: #c0c0c0;
 }
 
 .formulate-form {
@@ -32,4 +34,13 @@ body {
   &:hover {
     border-color: hsl(0,0,45);
   }
+}
+
+.component-fade-enter-active, .component-fade-leave-active {
+  transition: opacity .2s ease, transform 0.1s ease;
+}
+.component-fade-enter, .component-fade-leave-to
+/* .component-fade-leave-active below version 2.1.8 */ {
+  opacity: 0;
+  transform: translate(-1em, 0);
 }

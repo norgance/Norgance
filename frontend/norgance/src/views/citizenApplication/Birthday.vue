@@ -16,11 +16,11 @@
         :help="$t('birthplaceHelp')"
         v-model="birthplace"
       />
-      <router-link :to="{ name: 'CitizenApplicationNames' }"
-      tag="button" type="button" class="back-button">{{
-        $t("back")
-      }}</router-link>
       <FormulateInput type="submit" :name="$t('continue')" />
+      <router-link
+        :to="{ name: 'CitizenApplicationNames' }"
+        >{{ $t("back") }}</router-link
+      >
     </FormulateForm>
   </div>
 </template>
@@ -70,7 +70,7 @@ export default {
       }
     },
     birthplace(newBirthplace) {
-      this.$store.commit('citizenApplication/updateBirthplace', newBirthplace);
+      this.$store.commit('citizenApplication/updateBirthPlace', newBirthplace);
     },
   },
   methods: {
@@ -78,13 +78,22 @@ export default {
       this.$router.push({ name: 'CitizenApplicationIdentifier' });
     },
   },
+  mounted() {
+    if (!this.$store.state.citizenApplication.name) {
+      this.$router.push({ name: 'CitizenApplicationNames' });
+    }
+  },
 };
 </script>
 
 <style lang="scss" scoped>
 .time-traveler {
   font-size: 0.9em;
-  background-image: linear-gradient(to left, hsl(320, 75, 50), hsl(200, 100, 30));
+  background-image: linear-gradient(
+    to left,
+    hsl(320, 75, 50),
+    hsl(200, 100, 30)
+  );
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
 }

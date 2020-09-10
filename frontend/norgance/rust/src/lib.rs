@@ -28,8 +28,9 @@ pub fn derivate_citizen_primary_key(name: &str) -> String {
         // a large scale bruteforce attack a bit more expensive,
         // and also because it's fun.
         // A single blake2b hash could have been good enough.
-        mem_cost: 1024, // kb
-        time_cost: 2,
+        // It's designed to take about one second on my laptop.
+        mem_cost: 2048, // kb
+        time_cost: 3,
         lanes: 1,
         thread_mode: argon2::ThreadMode::Sequential,
         secret: &[],

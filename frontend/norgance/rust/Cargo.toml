@@ -3,6 +3,9 @@ name = "norgance"
 version = "0.1.0"
 authors = ["Norgance <66333061+norgance-admin@users.noreply.github.com>"]
 edition = "2018"
+description = "Library of utilities for the Norgance frontend"
+repository = "https://github.com/norgance/Norgance"
+license = "UNLICENSED"
 
 [lib]
 crate-type = ["cdylib", "rlib"]

@@ -1,15 +1,15 @@
 export default {
   namespaced: true,
   state: {
-    firstName: '',
+    name: '',
     familyName: '',
     birthday: undefined,
     birthplace: '',
     identifier: '',
   },
   mutations: {
-    updateFirstName(state, name) {
-      state.firstName = name;
+    updateName(state, name) {
+      state.name = name;
     },
     updateFamilyName(state, name) {
       state.familyName = name;

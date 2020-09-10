@@ -208,9 +208,13 @@
   margin: 0;
   border: 1px solid #c0c0c0;
   //border-color: #41b883;
+  border-color: rgba(0,0,0,0.225);
+  //border-radius: 0.4rem;
   background: linear-gradient(124deg, #ff2400, #e81d1d, #90710f, #e3e81d, #1de840, #1ddde8, #2b1de8, purple, pink, #ff2400, #e81d1d, #e8b71d, #e3e81d, #1de840, #1ddde8, #2b1de8, lightcoral, pink);
-    background-size: 4000% 100%;
-    background-position: 400% 0;
+  background-size: 4000% 100%;
+  background-position: 400% 0;
+  animation: rainbow2 240s linear infinite;
+  //animation: rainbow2 10s linear infinite;
   color: white;
   min-width: 0;
   width: auto;
@@ -253,7 +257,8 @@
   background-color: transparent;
 }
 .formulate-input[data-classification="button"] button:active {
-  background-color: #64c89b;
+  background: black;
+  background-color: black;
   border-color: #64c89b;
 }
 .formulate-input[data-classification="select"] .formulate-input-element {
@@ -729,4 +734,16 @@
   font-weight: 300;
   line-height: 1.5;
   margin-bottom: 0.25em;
+}
+
+@keyframes rainbow2 {
+  0% {
+    background-position: 400% 0;
+  }
+  /*50% {
+    background-position: 0% 0;
+  }*/
+  100% {
+    background-position: 0% 0;
+  }
 }
