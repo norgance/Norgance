@@ -18,13 +18,16 @@ function findBestLocale() {
     || DEFAULT_LOCALE;
 }
 
-const formulateI18n = [en, es, fr];
-export {
-  formulateI18n,
-};
+const locale = findBestLocale();
+
+export function formatLocaleDate(date) {
+  return date ? date.toLocaleDateString(locale) : undefined;
+}
+
+export const formulateI18n = [en, es, fr];
 
 export default new VueI18n({
-  locale: findBestLocale(),
+  locale,
   fallbackLocale: DEFAULT_LOCALE,
   messages: loadLocaleMessages(),
 });

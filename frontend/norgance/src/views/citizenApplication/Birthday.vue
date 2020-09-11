@@ -9,6 +9,8 @@
         v-model="birthday"
       />
       <p v-if="isInFuture" class="time-traveler">{{ $t("future") }}</p>
+      <p v-if="isJustBorn" class="just-born">{{ $t("justBorn") }}</p>
+      <p v-if="isVeryOld" class="very-old">{{ $t("veryOld") }}</p>
 
       <FormulateInput
         name="birthplace"
@@ -87,8 +89,8 @@ export default {
 </script>
 
 <style lang="scss" scoped>
-.time-traveler {
-  font-size: 0.9em;
+.time-traveler, .very-old, .just-born {
+  //font-size: 0.9em;
   background-image: linear-gradient(
     to left,
     hsl(320, 75, 50),
@@ -96,6 +98,7 @@ export default {
   );
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
+  margin-bottom: 2em;
 }
 </style>
 
@@ -109,6 +112,8 @@ en:
 fr:
   birthday: Quelle est votre date de naissance ?
   future: Les voyageurs dans le temps sont les bienvenus.
+  veryOld: Les personnes très agées sènt les bienvenues.
+  justBorn: Félicitations pour la naissance !
   back: Retour aux noms
   continue: Continuer
   birthdayHelp: |

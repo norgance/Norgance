@@ -6,6 +6,7 @@ export default {
     birthday: undefined,
     birthplace: '',
     identifier: '',
+    password: '',
   },
   mutations: {
     updateName(state, name) {
@@ -25,6 +26,9 @@ export default {
     },
     updateIdentifier(state, identifier) {
       state.identifier = identifier;
+    },
+    updatePassword(state, password) {
+      state.password = password;
     },
   },
 };

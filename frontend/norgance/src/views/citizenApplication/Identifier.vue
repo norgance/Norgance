@@ -7,6 +7,7 @@
         :help="$t('identifierHelp')"
         v-model="identifier"
         validation="matches:/^[^\s]*$/"
+        pattern="[^\s]*"
         :validation-messages="{ matches: $t('noSpaces') }"
         error-behavior="live"
         required
