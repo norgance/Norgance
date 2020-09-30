@@ -1,8 +1,9 @@
+use juniper::{EmptySubscription, FieldResult, RootNode};
 use std::sync::Arc;
-use juniper::{EmptySubscription, FieldResult, RootNode, Variables};
 
 use crate::db;
 use crate::schema;
+use crate::validation;
 
 /**
  * Types
@@ -19,26 +20,26 @@ pub struct Citizen {
 #[derive(juniper::GraphQLInputObject)]
 pub struct CitizenRegistration {
     identifier: String,
-    accessKey: String,
-    publicX448: String,
-    publicX25519Dalek: String,
-    publicEd25519Dalek: String,
-    aeadData: String,
+    access_key: String,
+    public_x448: String,
+    public_x25519_dalek: String,
+    public_ed25519_dalek: String,
+    aead_data: String,
 }
 
 #[derive(juniper::GraphQLObject, Clone)]
 pub struct CitizenPublicKeys {
-    publicX448: String,
-    publicX25519Dalek: String,
-    publicEd25519Dalek: String,
+    public_x448: String,
+    public_x25519_dalek: String,
+    public_ed25519_dalek: String,
 }
 
 /**
  * Context
  **/
 pub struct Ctx {
-    pub dbPool: Arc<db::DbPool>,
-    pub citizenIdentifier: Option<String>,
+    pub db_pool: Arc<db::DbPool>,
+    pub citizen_identifier: Option<String>,
 }
 impl juniper::Context for Ctx {}
 
@@ -57,22 +58,31 @@ impl Query {
     /// therefore if someone is too slow to apply to their citizenship,
     /// they may get an error later even though this call returned true.
     fn isIdentifierAvailable(context: &Ctx, identifier: String) -> FieldResult<bool> {
+        if !validation::validate_identifier(&identifier) {
+            return Ok(false);
+        }
 
-        // TODO validate identifier for fun
+        // We have a name conflict
+        let prout = identifier;
+        {
+            use diesel::dsl::*;
+            use diesel::prelude::*;
+            use schema::citizens::dsl::*;
+            let db = context.db_pool.get()?;
 
-        use diesel::prelude::*;
-        
-        let db = context.dbPool.get()?;
+            let query = select(not(exists(
+                citizens
+                    .filter(identifier.eq(prout))
+                    .select(identifier),
+            )));
 
-        /*use diesel::dsl::*;
-        use schema::citizens;
-        let query = select(exists(
-            citizens::table.filter(
-                citizens::identifier.eq(identifier))));*/
+            println!("{}", diesel::debug_query::<diesel::pg::Pg, _>(&query));
 
-        let query = diesel::sql_query("SELECT NOT EXISTS (SELECT identifier from citizens where identifier = $1) as available")
+            return Ok(query.get_result(&db)?);
+        }
+
+        /*let query = diesel::sql_query("SELECT NOT EXISTS (SELECT identifier from citizens where identifier = $1) as available")
                 .bind::<diesel::sql_types::Text,_>(identifier);
-        
         println!("{}", diesel::debug_query::<diesel::pg::Pg,_>(&query));
 
         use diesel::sql_types::Bool;
@@ -84,30 +94,33 @@ impl Query {
 
         let mut availables = query.load::<Exists>(&db)?;
         let available = availables.pop().expect("No result");
-        Ok(available.available)
+        Ok(available.available)*/
     }
 
     /// Technically, the access key would be enough to load the data
     /// But it's very cheap to also check the identifier
     /// so we also ask for the identifier
-    fn loadCitizenPersonalData(context: &Ctx, identifier: String, accessKey: String) -> FieldResult<Option<String>> {
+    fn loadCitizenPersonalData(
+        _context: &Ctx,
+        _identifier: String,
+        _access_key: String,
+    ) -> FieldResult<Option<String>> {
         Ok(None)
     }
 
     /// Returns the public keys of a citizen
     fn loadCitizenPublicKeys(
-        context: &Ctx,
-        identifier: String,
+        _context: &Ctx,
+        _identifier: String,
     ) -> FieldResult<Option<CitizenPublicKeys>> {
         Ok(Some(CitizenPublicKeys {
-            publicX448: String::from("x448"),
-            publicX25519Dalek: String::from("x25519"),
-            publicEd25519Dalek: String::from("ed25519"),
+            public_x448: String::from("x448"),
+            public_x25519_dalek: String::from("x25519"),
+            public_ed25519_dalek: String::from("ed25519"),
         }))
         //Ok(None)
     }
 }
-
 
 /**
  * Mutation
@@ -118,7 +131,7 @@ pub struct Mutation;
     Context = Ctx,
 )]
 impl Mutation {
-    fn registerCitizenShip(context: &Ctx, registration: CitizenRegistration) -> FieldResult<bool> {
+    fn registerCitizenShip(_context: &Ctx, _registration: CitizenRegistration) -> FieldResult<bool> {
         Ok(true)
     }
 }

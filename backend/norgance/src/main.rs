@@ -2,24 +2,22 @@ mod db;
 mod graphql;
 mod models;
 mod schema;
+mod validation;
 
-use std::sync::Arc;
+#[macro_use] extern crate diesel_migrations;
+#[macro_use] extern crate diesel;
+//#[macro_use] extern crate juniper;
+#[macro_use] extern crate lazy_static;
+
 use std::env;
+use std::sync::Arc;
 
 use hyper::{
     service::{make_service_fn, service_fn},
     Body, Method, Response, Server, StatusCode,
 };
 
-#[macro_use]
-extern crate juniper;
-
-#[macro_use]
-extern crate diesel_migrations;
 embed_migrations!("./migrations");
-
-#[macro_use]
-extern crate diesel;
 
 #[tokio::main]
 async fn main() {
@@ -51,14 +49,13 @@ async fn main() {
 
     let new_service = make_service_fn(move |_| {
         let root_node = root_node.clone();
-        //let ctx = db.clone();
         let arc_db_pool = arc_db_pool.clone();
 
         async {
             Ok::<_, hyper::Error>(service_fn(move |req| {
                 let root_node = root_node.clone();
-                //let ctx = ctx.clone();
                 let arc_db_pool = arc_db_pool.clone();
+
                 async move {
                     match (req.method(), req.uri().path()) {
                         (&Method::GET, "/") => juniper_hyper::playground("/graphql", None).await,
@@ -71,28 +68,12 @@ async fn main() {
                                 None => None,
                             };
 
-                            /*let arc_db_pool = arc_db_pool.clone();
-                            let db_connection = match (&arc_db_pool).get() {
-                                Ok(c) => c,
-                                Err(error) => {
-                                    eprintln!("Unable to get db connection: {}", error);
-                                    let mut response = Response::new(Body::empty());
-                                    *response.status_mut() = StatusCode::INTERNAL_SERVER_ERROR;
-                                    return Ok(response);
-                                }
-                            };*/
-
-                            /*(&arc_db_pool).commit();
-
-                            db::migrate(&db_connection).expect("migrate");*/
-                            
-                            let prout = Arc::new(graphql::Ctx {
-                                dbPool: arc_db_pool.clone(),
-                                citizenIdentifier: citizen_identifier,//: Some(String::from("prout")),
+                            let context_for_query = Arc::new(graphql::Ctx {
+                                db_pool: arc_db_pool.clone(),
+                                citizen_identifier: citizen_identifier,
                             });
 
-                            //ctx.citizen_identifier = Some(String::from("canard"));
-                            juniper_hyper::graphql(root_node, prout, req).await
+                            juniper_hyper::graphql(root_node, context_for_query, req).await
                         }
                         (&Method::POST, "/lapin") => {
                             let mut response = Response::new(Body::empty());

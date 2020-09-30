@@ -701,9 +701,11 @@ dependencies = [
  "hyper",
  "juniper",
  "juniper_hyper",
+ "lazy_static",
  "lenient_bool",
  "pretty_env_logger",
  "r2d2",
+ "regex",
  "snafu",
  "tokio",
 ]
