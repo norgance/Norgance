@@ -4,6 +4,8 @@ use diesel::PgConnection;
 //use snafu::{ensure, Backtrace, ErrorCompat, ResultExt, Snafu};
 use snafu::{ResultExt, Snafu};
 
+use crate::schema;
+
 #[derive(Debug, Snafu)]
 pub enum NorganceDatabaseError {
   #[snafu(display("Setting not found: {}", source))]
@@ -14,15 +16,19 @@ pub enum NorganceDatabaseError {
 
   #[snafu(display("Error while creating database pool: {}", source))]
   DatabasePoolCreation { source: r2d2::Error },
-  
   #[snafu(display("Error while migrating database: {}", source))]
-  DatabaseMigrations { source: diesel_migrations::RunMigrationsError },
+  DatabaseMigrations {
+    source: diesel_migrations::RunMigrationsError,
+  },
+  #[snafu(display("Error while querying the database database: {}", source))]
+  QueryError { source: diesel::result::Error },
 }
 
 pub type Result<T, E = NorganceDatabaseError> = std::result::Result<T, E>;
 
 pub type DbConnection = diesel::PgConnection;
 pub type DbPool = diesel::r2d2::Pool<ConnectionManager<DbConnection>>;
+pub type DbPooledConnection = diesel::r2d2::PooledConnection<ConnectionManager<DbConnection>>;
 
 pub fn create_connection_pool() -> Result<DbPool> {
   let database_url = std::env::var("DATABASE_URL").context(SettingNotFound)?;
@@ -44,4 +50,25 @@ pub fn create_connection_pool() -> Result<DbPool> {
 pub fn migrate(connection: &DbConnection) -> Result<()> {
   diesel_migrations::run_pending_migrations(connection).context(DatabaseMigrations)?;
   Ok(())
+}
+
+pub fn is_identifier_available(
+  db: &DbPooledConnection,
+  requested_identifier: &str,
+) -> Result<bool> {
+  use diesel::dsl::*;
+  use diesel::prelude::*;
+  use schema::citizens::dsl::*;
+
+  let query = select(not(exists(
+    citizens
+      .filter(identifier.eq(requested_identifier))
+      .select(identifier),
+  )));
+
+  //println!("{}", diesel::debug_query::<diesel::pg::Pg, _>(&query));
+
+  let result = query.get_result(db).context(QueryError)?;
+
+  Ok(result)
 }

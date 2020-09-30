@@ -1,9 +1,18 @@
 use juniper::{EmptySubscription, FieldResult, RootNode};
+use snafu::{ResultExt, Snafu};
 use std::sync::Arc;
 
 use crate::db;
-use crate::schema;
 use crate::validation;
+
+#[derive(Debug, Snafu)]
+pub enum NorganceError {
+    #[snafu(display("Database connection error"))]
+    DatabaseConnectionError { source: r2d2::Error },
+
+    #[snafu(display("Database transaction error"))]
+    DatabaseTransactionError { source: diesel::result::Error },
+}
 
 /**
  * Types
@@ -34,6 +43,17 @@ pub struct CitizenPublicKeys {
     public_ed25519_dalek: String,
 }
 
+#[derive(juniper::GraphQLObject, Clone)]
+pub struct CitizenRegistrationResult {
+    success: bool,
+    valid_identifier: bool,
+    valid_access_key: bool,
+    valid_public_x448: bool,
+    valid_public_x25519_dalek: bool,
+    valid_public_ed25519_dalek: bool,
+    valid_aead_data: bool,
+}
+
 /**
  * Context
  **/
@@ -62,39 +82,10 @@ impl Query {
             return Ok(false);
         }
 
-        // We have a name conflict
-        let prout = identifier;
-        {
-            use diesel::dsl::*;
-            use diesel::prelude::*;
-            use schema::citizens::dsl::*;
-            let db = context.db_pool.get()?;
+        let db = context.db_pool.get().context(DatabaseConnectionError)?;
+        let available = db::is_identifier_available(&db, &identifier)?;
 
-            let query = select(not(exists(
-                citizens
-                    .filter(identifier.eq(prout))
-                    .select(identifier),
-            )));
-
-            println!("{}", diesel::debug_query::<diesel::pg::Pg, _>(&query));
-
-            return Ok(query.get_result(&db)?);
-        }
-
-        /*let query = diesel::sql_query("SELECT NOT EXISTS (SELECT identifier from citizens where identifier = $1) as available")
-                .bind::<diesel::sql_types::Text,_>(identifier);
-        println!("{}", diesel::debug_query::<diesel::pg::Pg,_>(&query));
-
-        use diesel::sql_types::Bool;
-        #[derive(QueryableByName)]
-        struct Exists {
-            #[sql_type="Bool"]
-            available: bool,
-        }
-
-        let mut availables = query.load::<Exists>(&db)?;
-        let available = availables.pop().expect("No result");
-        Ok(available.available)*/
+        Ok(available)
     }
 
     /// Technically, the access key would be enough to load the data
@@ -131,8 +122,59 @@ pub struct Mutation;
     Context = Ctx,
 )]
 impl Mutation {
-    fn registerCitizenShip(_context: &Ctx, _registration: CitizenRegistration) -> FieldResult<bool> {
-        Ok(true)
+    fn registerCitizenShip(
+        context: &Ctx,
+        registration: CitizenRegistration,
+    ) -> FieldResult<CitizenRegistrationResult> {
+        // This is not very nice
+        let mut result = CitizenRegistrationResult {
+            success: false,
+            valid_identifier: validation::validate_identifier(&registration.identifier),
+            valid_access_key: validation::validate_key(&registration.access_key),
+            valid_aead_data: validation::validate_base64(&registration.aead_data),
+            valid_public_ed25519_dalek: validation::validate_base64(
+                &registration.public_ed25519_dalek,
+            ),
+            valid_public_x25519_dalek: validation::validate_base64(
+                &registration.public_x25519_dalek,
+            ),
+            valid_public_x448: validation::validate_base64(&registration.public_x448),
+        };
+
+        if !result.valid_identifier
+            || !result.valid_access_key
+            || !result.valid_aead_data
+            || !result.valid_public_ed25519_dalek
+            || !result.valid_public_x25519_dalek
+            || !result.valid_public_x448
+        {
+            return Ok(result);
+        }
+
+        let db = context.db_pool.get().context(DatabaseConnectionError)?;
+
+        use crate::schema::citizens;
+        use crate::models::{Citizen,NewCitizen};
+        use diesel::prelude::*;
+
+        // Glue
+        let new_citizen = NewCitizen {
+            identifier: &registration.identifier,
+            access_key: &registration.access_key,
+            public_x448: &registration.public_x448,
+            public_x25519_dalek: &registration.public_x25519_dalek,
+            public_ed25519_dalek: &registration.public_ed25519_dalek,
+            aead_data: &registration.aead_data,
+        };
+
+        let _citizen : Citizen = diesel::insert_into(citizens::table)
+            .values(&new_citizen)
+            .get_result(&db)
+            .context(DatabaseTransactionError)?;
+
+        result.success = true;
+
+        Ok(result)
     }
 }
 
