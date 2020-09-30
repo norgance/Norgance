@@ -10,6 +10,13 @@ pub struct Citizen {
     pub aead_data: String,
 }
 
+#[derive(diesel::Queryable)]
+pub struct CitizenPublicKeys {
+    pub public_x448: String,
+    pub public_x25519_dalek: String,
+    pub public_ed25519_dalek: String,
+}
+
 #[derive(Insertable)]
 #[table_name="citizens"]
 pub struct NewCitizen<'a> {

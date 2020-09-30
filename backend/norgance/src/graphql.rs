@@ -63,6 +63,11 @@ pub struct Ctx {
 }
 impl juniper::Context for Ctx {}
 
+fn db_connection(context: &Ctx) -> Result<db::DbPooledConnection, NorganceError> {
+    let db = context.db_pool.get().context(DatabaseConnectionError)?;
+    Ok(db)
+}
+
 /**
  * Query
  **/
@@ -101,15 +106,24 @@ impl Query {
 
     /// Returns the public keys of a citizen
     fn loadCitizenPublicKeys(
-        _context: &Ctx,
-        _identifier: String,
+        context: &Ctx,
+        identifier: String,
     ) -> FieldResult<Option<CitizenPublicKeys>> {
-        Ok(Some(CitizenPublicKeys {
-            public_x448: String::from("x448"),
-            public_x25519_dalek: String::from("x25519"),
-            public_ed25519_dalek: String::from("ed25519"),
-        }))
-        //Ok(None)
+        let db = db_connection(context)?;
+
+        let public_keys = match db::load_citizen_public_keys(&db, &identifier)? {
+            Some(pk) => pk,
+            None => return Ok(None),
+        };
+
+        // Glue
+        let result = CitizenPublicKeys {
+            public_x448: public_keys.public_x448,
+            public_x25519_dalek: public_keys.public_x25519_dalek,
+            public_ed25519_dalek: public_keys.public_ed25519_dalek,
+        };
+
+        Ok(Some(result))
     }
 }
 
@@ -151,10 +165,8 @@ impl Mutation {
             return Ok(result);
         }
 
-        let db = context.db_pool.get().context(DatabaseConnectionError)?;
-
+        use crate::models::{Citizen, NewCitizen};
         use crate::schema::citizens;
-        use crate::models::{Citizen,NewCitizen};
         use diesel::prelude::*;
 
         // Glue
@@ -167,7 +179,9 @@ impl Mutation {
             aead_data: &registration.aead_data,
         };
 
-        let _citizen : Citizen = diesel::insert_into(citizens::table)
+        let db = db_connection(context)?;
+
+        let _citizen: Citizen = diesel::insert_into(citizens::table)
             .values(&new_citizen)
             .get_result(&db)
             .context(DatabaseTransactionError)?;

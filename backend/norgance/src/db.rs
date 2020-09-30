@@ -72,3 +72,21 @@ pub fn is_identifier_available(
 
   Ok(result)
 }
+
+pub fn load_citizen_public_keys(
+  db: &DbPooledConnection,
+  requested_identifier: &str,
+) -> Result<Option<crate::models::CitizenPublicKeys>> {
+  use crate::schema::citizens::dsl::*;
+  use diesel::prelude::*;
+
+  let result = citizens
+    .filter(identifier.eq(requested_identifier))
+    .select((public_x448, public_x25519_dalek, public_ed25519_dalek))
+    .limit(1)
+    .load::<crate::models::CitizenPublicKeys>(db)
+    .context(QueryError)?
+    .pop();
+
+  Ok(result)
+}
