@@ -717,6 +717,8 @@ dependencies = [
  "pretty_env_logger",
  "r2d2",
  "regex",
+ "serde",
+ "serde_json",
  "snafu",
  "tokio",
 ]

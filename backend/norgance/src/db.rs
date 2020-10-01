@@ -111,3 +111,13 @@ pub fn load_citizen_public_keys(
 
   Ok(result)
 }
+
+pub fn health_check(db: &DbPooledConnection) -> Result<()> {
+  use diesel::prelude::*;
+
+  diesel::sql_query("SELECT 1")
+    .execute(db)
+    .context(QueryError)?;
+
+  Ok(())
+}

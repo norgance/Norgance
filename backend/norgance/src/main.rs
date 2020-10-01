@@ -4,10 +4,13 @@ mod models;
 mod schema;
 mod validation;
 
-#[macro_use] extern crate diesel_migrations;
-#[macro_use] extern crate diesel;
+#[macro_use]
+extern crate diesel_migrations;
+#[macro_use]
+extern crate diesel;
 //#[macro_use] extern crate juniper;
-#[macro_use] extern crate lazy_static;
+#[macro_use]
+extern crate lazy_static;
 
 use std::env;
 use std::sync::Arc;
@@ -16,12 +19,12 @@ use hyper::{
     service::{make_service_fn, service_fn},
     Body, Method, Response, Server, StatusCode,
 };
+use serde_json::json;
 
 embed_migrations!("./migrations");
 
 #[tokio::main]
 async fn main() {
-
     let db_pool = db::create_connection_pool().expect("database");
 
     {
@@ -75,10 +78,21 @@ async fn main() {
 
                             juniper_hyper::graphql(root_node, context_for_query, req).await
                         }
-                        (&Method::POST, "/lapin") => {
-                            let mut response = Response::new(Body::empty());
-                            *response.body_mut() = Body::from("{\"available\":true}");
-                            Ok(response)
+                        (&Method::GET, "/health") => {
+                            let ok = match arc_db_pool.get() {
+                                Ok(db) => match db::health_check(&db) {
+                                    Ok(_) => true,
+                                    Err(_) => false,
+                                },
+                                Err(_) => false,
+                            };
+                            Ok(Response::builder()
+                                .status(200)
+                                .header(hyper::header::CONTENT_TYPE, "application/json")
+                                .body(Body::from(
+                                    serde_json::to_vec(&json!({ "available": ok })).unwrap(),
+                                ))
+                                .unwrap())
                         }
                         _ => {
                             let mut response = Response::new(Body::empty());
