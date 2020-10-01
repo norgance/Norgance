@@ -97,11 +97,25 @@ impl Query {
     /// But it's very cheap to also check the identifier
     /// so we also ask for the identifier
     fn loadCitizenPersonalData(
-        _context: &Ctx,
-        _identifier: String,
-        _access_key: String,
+        context: &Ctx,
+        access_key: String,
     ) -> FieldResult<Option<String>> {
-        Ok(None)
+
+        let identifier = match &context.citizen_identifier {
+            Some(identifier) => identifier,
+            None => return Ok(None),
+        };
+        
+        let db = db_connection(context)?;
+
+        return match db::load_citizen_personal_data(
+            &db,
+            &identifier,
+            &access_key,
+        )? {
+            Some(aead_data) => Ok(Some(aead_data)),
+            None => Ok(None),
+        };
     }
 
     /// Returns the public keys of a citizen

@@ -52,17 +52,14 @@ pub fn migrate(connection: &DbConnection) -> Result<()> {
   Ok(())
 }
 
-pub fn is_identifier_available(
-  db: &DbPooledConnection,
-  requested_identifier: &str,
-) -> Result<bool> {
+pub fn is_identifier_available(db: &DbPooledConnection, input_identifier: &str) -> Result<bool> {
   use diesel::dsl::*;
   use diesel::prelude::*;
   use schema::citizens::dsl::*;
 
   let query = select(not(exists(
     citizens
-      .filter(identifier.eq(requested_identifier))
+      .filter(identifier.eq(input_identifier))
       .select(identifier),
   )));
 
@@ -73,15 +70,39 @@ pub fn is_identifier_available(
   Ok(result)
 }
 
+pub fn load_citizen_personal_data(
+  db: &DbPooledConnection,
+  input_identifier: &str,
+  input_access_key: &str,
+) -> Result<Option<String>> {
+  use crate::schema::citizens::dsl::*;
+  use diesel::prelude::*;
+
+  let query = citizens
+    .filter(
+      identifier
+        .eq(input_identifier)
+        .and(access_key.eq(input_access_key)),
+    )
+    .select(aead_data)
+    .limit(1);
+
+  // println!("{}", diesel::debug_query::<diesel::pg::Pg, _>(&query));
+
+  let result = query.load::<String>(db).context(QueryError)?.pop();
+
+  Ok(result)
+}
+
 pub fn load_citizen_public_keys(
   db: &DbPooledConnection,
-  requested_identifier: &str,
+  input_identifier: &str,
 ) -> Result<Option<crate::models::CitizenPublicKeys>> {
   use crate::schema::citizens::dsl::*;
   use diesel::prelude::*;
 
   let result = citizens
-    .filter(identifier.eq(requested_identifier))
+    .filter(identifier.eq(input_identifier))
     .select((public_x448, public_x25519_dalek, public_ed25519_dalek))
     .limit(1)
     .load::<crate::models::CitizenPublicKeys>(db)
