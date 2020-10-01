@@ -10,10 +10,17 @@ use crate::db;
 use crate::graphql;
 
 async fn shutdown_signal() {
-    // Wait for the CTRL+C signal
     tokio::signal::ctrl_c()
         .await
         .expect("failed to install CTRL+C signal handler");
+}
+
+fn json_response(json: &serde_json::value::Value) -> Response<hyper::body::Body> {
+    return Response::builder()
+        .status(200)
+        .header(hyper::header::CONTENT_TYPE, "application/json")
+        .body(Body::from(serde_json::to_vec(&json).unwrap()))
+        .unwrap();
 }
 
 pub async fn server_main(
@@ -76,14 +83,16 @@ pub async fn server_main(
                                 },
                                 Err(_) => false,
                             };
-                            Ok(Response::builder()
-                                .status(200)
-                                .header(hyper::header::CONTENT_TYPE, "application/json")
-                                .body(Body::from(
-                                    serde_json::to_vec(&json!({ "available": ok })).unwrap(),
-                                ))
-                                .unwrap())
+                            Ok(json_response(&json!({ "available": ok })))
                         }
+                        (&Method::POST, "/chatrouille") => {
+                            let response = Response::new(Body::empty());
+                            Ok(response)
+                        }
+                        (&Method::GET, "/chatrouille_public_key") => Ok(json_response(&json!({
+                                "public_key": "abc",
+                                "signature": "efg"
+                        }))),
                         _ => {
                             let mut response = Response::new(Body::empty());
                             *response.status_mut() = StatusCode::NOT_FOUND;
