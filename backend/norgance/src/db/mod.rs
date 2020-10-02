@@ -4,7 +4,8 @@ use diesel::PgConnection;
 //use snafu::{ensure, Backtrace, ErrorCompat, ResultExt, Snafu};
 use snafu::{ResultExt, Snafu};
 
-use crate::schema;
+pub mod schema;
+pub mod models;
 
 #[derive(Debug, Snafu)]
 pub enum NorganceDatabaseError {
@@ -75,7 +76,7 @@ pub fn load_citizen_personal_data(
   input_identifier: &str,
   input_access_key: &str,
 ) -> Result<Option<String>> {
-  use crate::schema::citizens::dsl::*;
+  use schema::citizens::dsl::*;
   use diesel::prelude::*;
 
   let query = citizens
@@ -97,15 +98,15 @@ pub fn load_citizen_personal_data(
 pub fn load_citizen_public_keys(
   db: &DbPooledConnection,
   input_identifier: &str,
-) -> Result<Option<crate::models::CitizenPublicKeys>> {
-  use crate::schema::citizens::dsl::*;
+) -> Result<Option<models::CitizenPublicKeys>> {
+  use schema::citizens::dsl::*;
   use diesel::prelude::*;
 
   let result = citizens
     .filter(identifier.eq(input_identifier))
     .select((public_x448, public_x25519_dalek, public_ed25519_dalek))
     .limit(1)
-    .load::<crate::models::CitizenPublicKeys>(db)
+    .load::<models::CitizenPublicKeys>(db)
     .context(QueryError)?
     .pop();
 

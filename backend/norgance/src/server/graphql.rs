@@ -179,8 +179,8 @@ impl Mutation {
             return Ok(result);
         }
 
-        use crate::models::{Citizen, NewCitizen};
-        use crate::schema::citizens;
+        use crate::db::models::{Citizen, NewCitizen};
+        use crate::db::schema::citizens;
         use diesel::prelude::*;
 
         // Glue

@@ -1,3 +1,5 @@
+pub mod graphql;
+
 use std::net::SocketAddr;
 use std::sync::Arc;
 
@@ -7,7 +9,6 @@ use hyper::{Method, StatusCode};
 use serde_json::json;
 
 use crate::db;
-use crate::graphql;
 
 async fn shutdown_signal() {
     tokio::signal::ctrl_c()
@@ -28,7 +29,8 @@ pub async fn server_main(
     addr: SocketAddr,
     authentication_bearer: std::borrow::Cow<'static, str>,
 ) {
-    let root_node = crate::graphql::new_root_node();
+
+    let root_node = graphql::new_root_node();
     let authentication_bearer = authentication_bearer.clone();
 
     let new_service = make_service_fn(move |_| {

@@ -1,8 +1,5 @@
 mod chatrouille;
 mod db;
-mod graphql;
-mod models;
-mod schema;
 mod server;
 mod validation;
 
