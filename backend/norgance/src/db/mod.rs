@@ -34,7 +34,7 @@ pub type DbPooledConnection = diesel::r2d2::PooledConnection<ConnectionManager<D
 pub fn create_connection_pool() -> Result<DbPool> {
   let database_url = std::env::var("DATABASE_URL").context(SettingNotFound)?;
   let database_max_connections = std::env::var("DATABASE_MAX_CONNECTIONS")
-    .unwrap_or(String::from("16"))
+    .unwrap_or_else(|_| String::from("16"))
     .parse::<u32>()
     .context(WrongSetting)?;
 

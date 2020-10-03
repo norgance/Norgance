@@ -99,6 +99,7 @@ const MINIMUM_RESPONSE_DATA_LENGTH: usize =
   PACKET_VERSION_LENGTH + MODE_LENGTH + NOUNCE_LENGTH + TAG_LENGTH;
 const MINIMUM_SIGNED_QUERY_DATA_LENGTH: usize = MINIMUM_QUERY_DATA_LENGTH + SIGNATURE_LENGTH;
 
+#[allow(dead_code)] // TODO
 pub fn pack_signed_query(
   data: Vec<u8>,
   server_public_key: &x448::PublicKey,
@@ -142,11 +143,11 @@ fn pack_query(
 
   let encrypted_payload = pack(data, mode, public_key_bytes, &shared_secret, client_keypair)?;
 
-  return Ok((encrypted_payload, shared_secret));
+  Ok((encrypted_payload, shared_secret))
 }
 
 pub fn pack_response(data: Vec<u8>, shared_secret: &x448::SharedSecret) -> Result<Vec<u8>> {
-  return pack(data, Mode::Response, vec![], &shared_secret, None);
+  pack(data, Mode::Response, vec![], &shared_secret, None)
 }
 
 fn pack(
@@ -192,6 +193,7 @@ fn pack(
   if mode == Mode::Query {
     packed_data.extend(client_public_key_bytes);
   }
+  packed_data.append(&mut encrypted);
 
   if mode == Mode::SignedQuery {
     if client_keypair.is_none() {
@@ -199,14 +201,14 @@ fn pack(
     }
     use ed25519_dalek::Signer;
     // We sign first because appending the data will move the data
-    let signature = client_keypair.unwrap().sign(&encrypted);
-    packed_data.append(&mut encrypted);
+
+    // blake2b
+    let signature = client_keypair.unwrap().sign(&packed_data);
+
     packed_data.extend_from_slice(&signature.to_bytes());
-  } else {
-    packed_data.append(&mut encrypted);
   }
 
-  return Ok(packed_data);
+  Ok(packed_data)
 }
 
 pub fn unpack_query(
@@ -264,7 +266,7 @@ pub fn unpack_query(
     return Ok((raw_data, mode, shared_secret, Some(signature)));
   }
 
-  return Ok((raw_data, mode, shared_secret, None));
+  Ok((raw_data, mode, shared_secret, None))
 }
 
 pub fn unpack_response(
@@ -286,7 +288,7 @@ pub fn unpack_response(
     return Err(ChatrouilleError::InvalidModeInData);
   }
 
-  let mode_byte = mode.clone() as u8;
+  let mode_byte = mode as u8;
   let symmetric_key = key_utils::derive_shared_secret_to_sym_key(&shared_secret, &[mode_byte])
     .context(KeyDerivationError)?;
 
@@ -294,7 +296,7 @@ pub fn unpack_response(
 
   let raw_data = unpack(aead_bytes, symmetric_key)?;
 
-  return Ok(raw_data);
+  Ok(raw_data)
 }
 
 fn unpack(encrypted_data: &[u8], symmetric_key: orion::aead::SecretKey) -> Result<Vec<u8>> {

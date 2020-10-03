@@ -108,14 +108,14 @@ impl Query {
         
         let db = db_connection(context)?;
 
-        return match db::load_citizen_personal_data(
+        match db::load_citizen_personal_data(
             &db,
             &identifier,
             &access_key,
         )? {
             Some(aead_data) => Ok(Some(aead_data)),
             None => Ok(None),
-        };
+        }
     }
 
     /// Returns the public keys of a citizen

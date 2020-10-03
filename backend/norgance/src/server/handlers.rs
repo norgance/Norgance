@@ -17,11 +17,11 @@ pub enum NorganceChatrouilleError {
 }
 
 pub fn json_response(json: serde_json::value::Value, status: StatusCode) -> Response<Body> {
-  return Response::builder()
+  Response::builder()
     .status(status)
     .header(hyper::header::CONTENT_TYPE, "application/json")
     .body(Body::from(serde_json::to_vec(&json).unwrap()))
-    .unwrap();
+    .unwrap()
 }
 
 pub fn json_ok(json: serde_json::value::Value) -> Response<Body>{
@@ -60,7 +60,7 @@ pub async fn graphql(
 
   let context_for_query = Arc::new(graphql::Ctx {
     db_pool: arc_db_pool.clone(),
-    citizen_identifier: citizen_identifier,
+    citizen_identifier,
   });
 
   juniper_hyper::graphql(root_node, context_for_query, req).await
@@ -68,10 +68,7 @@ pub async fn graphql(
 
 pub fn health(arc_db_pool: Arc<db::DbPool>) -> ResultHandler {
   let ok = match arc_db_pool.get() {
-    Ok(db) => match db::health_check(&db) {
-      Ok(_) => true,
-      Err(_) => false,
-    },
+    Ok(db) => db::health_check(&db).is_ok(),
     Err(_) => false,
   };
   Ok(json_ok(json!({ "available": ok })))

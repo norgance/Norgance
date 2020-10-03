@@ -16,7 +16,7 @@ pub fn compress(data: Vec<u8>) -> Result<Vec<u8>> {
   std::io::copy(&mut &data[..], &mut encoder).context(EncoderError)?;
 
   let compressed_data = encoder.finish().into_result().context(EncoderError)?;
-  Ok(compressed_data.to_owned())
+  Ok(compressed_data)
 }
 
 pub fn decompress(data: Vec<u8>) -> Result<Vec<u8>> {

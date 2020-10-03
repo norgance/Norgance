@@ -1,3 +1,5 @@
+#![warn(clippy::all)]
+
 mod chatrouille;
 mod db;
 mod server;
@@ -23,7 +25,7 @@ async fn main() {
 
     {
         let should_run_migrations = env::var("DATABASE_MIGRATIONS")
-            .unwrap_or(String::from("true"))
+            .unwrap_or_else(|_| String::from("true"))
             .parse::<lenient_bool::LenientBool>()
             .unwrap_or_default()
             .into();
@@ -87,7 +89,8 @@ async fn main() {
         }
     };
 
-    let authentication_bearer = env::var("AUTHENTICATION_BEARER").unwrap_or(String::from("canard"));
+    let authentication_bearer =
+        env::var("AUTHENTICATION_BEARER").unwrap_or_else(|_| String::from("canard"));
 
     server::server_main(
         addr,
