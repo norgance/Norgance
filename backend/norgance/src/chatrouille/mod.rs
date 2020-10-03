@@ -1,6 +1,8 @@
 pub mod compressor;
 pub mod key_utils;
 
+use snafu::{ResultExt, Snafu};
+
 /**
  *  The message format is the following:
  *
@@ -12,44 +14,49 @@ pub mod key_utils;
  * Unlike JWE and similar, every algorithm is fixed. If the security of one of the parts of the message requires a change, or if better algorithms exist in the future, it will require a new version with something different than the duck emoji.
  */
 
-//use crate::chatrouille::compressor;
-//use crate::chatrouille::key_utils;
-
-#[derive(thiserror::Error, Debug)]
+#[derive(Snafu, Debug)]
 pub enum ChatrouilleError {
-    #[error("Unable to do the diffie Hellman")]
-    DiffieHellmanFail,
+  #[snafu(display("Unable to do the diffie Hellman"))]
+  DiffieHellmanFail,
 
-    #[error("Unable to compress the data")]
-    CompressionError,
+  #[snafu(display("Unable to compress the data: {}", source))]
+  CompressionError { source: compressor::CompressorError },
 
-    #[error("Unable to uncompress the data")]
-    UncompressionError,
+  #[snafu(display("Unable to uncompress the data: {}", source))]
+  UncompressionError { source: compressor::CompressorError },
 
-    #[error("Unable to derive the secret to a symmetric key")]
-    KeyDerivationError, 
+  #[snafu(display("Unable to derive the secret to a symmetric key"))]
+  KeyDerivationError {
+    source: orion::errors::UnknownCryptoError,
+  },
 
-    #[error("Unable to encrypt the data")]
-    EncryptionError,
-    
-    #[error("Unable to decrypt the data")]
-    DecryptionError,
-    
-    #[error("Invalid mode")]
-    InvalidMode,
-    
-    #[error("Invalid mode in data")]
-    InvalidModeInData,
-    
-    #[error("Data length is too small")]
-    NotEnoughData,
+  #[snafu(display("Unable to encrypt the data"))]
+  EncryptionError {
+    source: orion::errors::UnknownCryptoError,
+  },
 
-    #[error("The data prefix is invalid")]
-    InvalidDataPrefix,
-    
-    #[error("Unable to load the encryption key")]
-    KeyLoadingError,
+  #[snafu(display("Unable to decrypt the data"))]
+  DecryptionError {
+    source: orion::errors::UnknownCryptoError,
+  },
+
+  #[snafu(display("Invalid mode"))]
+  InvalidMode,
+
+  #[snafu(display("Invalid mode in data"))]
+  InvalidModeInData,
+
+  #[snafu(display("Data length is too small"))]
+  NotEnoughData,
+
+  #[snafu(display("The data prefix is invalid"))]
+  InvalidDataPrefix,
+
+  #[snafu(display("Unable to load the encryption key"))]
+  KeyLoadingError,
 }
+
+pub type Result<T, E = ChatrouilleError> = std::result::Result<T, E>;
 
 #[repr(u8)]
 #[derive(Clone, PartialEq)]
@@ -83,7 +90,7 @@ const MINIMUM_RESPONSE_DATA_LENGTH: usize =
 pub fn pack_query(
   data: Vec<u8>,
   server_public_key: &x448::PublicKey,
-) -> Result<(Vec<u8>, x448::SharedSecret), ChatrouilleError> {
+) -> Result<(Vec<u8>, x448::SharedSecret)> {
   let mut rng = rand::thread_rng();
   let client_secret = x448::Secret::new(&mut rng);
   let client_public_key = x448::PublicKey::from(&client_secret);
@@ -100,15 +107,12 @@ pub fn pack_query(
     CLIENT_PUBLIC_KEY_LENGTH
   );
 
-  let encrypted_payload = match pack(data, Mode::Query, public_key_bytes, &shared_secret) {
-    Ok(payload) => payload,
-    Err(error) => return Err(error),
-  };
+  let encrypted_payload = pack(data, Mode::Query, public_key_bytes, &shared_secret)?;
 
   return Ok((encrypted_payload, shared_secret));
 }
 
-pub fn pack_response(data: Vec<u8>, shared_secret: &x448::SharedSecret) -> Result<Vec<u8>, ChatrouilleError> {
+pub fn pack_response(data: Vec<u8>, shared_secret: &x448::SharedSecret) -> Result<Vec<u8>> {
   return pack(data, Mode::Response, vec![], &shared_secret);
 }
 
@@ -117,13 +121,10 @@ fn pack(
   mode: Mode,
   client_public_key_bytes: Vec<u8>,
   shared_secret: &x448::SharedSecret,
-) -> Result<Vec<u8>, ChatrouilleError> {
+) -> Result<Vec<u8>> {
   let mode_byte = mode.clone() as u8;
 
-  let mut compressed = match compressor::compress(data) {
-    Some(compressed) => compressed,
-    None => return Err(ChatrouilleError::CompressionError),
-  };
+  let mut compressed = compressor::compress(data).context(CompressionError)?;
 
   // To slightly improve the privacy, we pad all
   // compressed messages with zeros to have a final size which is a multiple of 32.
@@ -132,16 +133,10 @@ fn pack(
     compressed.append(&mut vec![0; 32 - diff_with_32]);
   }
 
-  let symmetric_key = match key_utils::derive_shared_secret_to_sym_key(shared_secret, &[mode_byte])
-  {
-    Ok(symmetric_key) => symmetric_key,
-    Err(_) => return Err(ChatrouilleError::KeyDerivationError),
-  };
+  let symmetric_key = key_utils::derive_shared_secret_to_sym_key(shared_secret, &[mode_byte])
+    .context(KeyDerivationError)?;
 
-  let mut encrypted = match orion::aead::seal(&symmetric_key, &compressed) {
-    Ok(encrypted) => encrypted,
-    Err(_) => return Err(ChatrouilleError::EncryptionError),
-  };
+  let mut encrypted = orion::aead::seal(&symmetric_key, &compressed).context(EncryptionError)?;
 
   let packed_data_length = PACKET_VERSION_LENGTH
     + MODE_LENGTH
@@ -167,7 +162,7 @@ fn pack(
 pub fn unpack_query(
   packed_data: Vec<u8>,
   private_key: &x448::Secret,
-) -> Result<(Vec<u8>, Mode, x448::SharedSecret), ChatrouilleError> {
+) -> Result<(Vec<u8>, Mode, x448::SharedSecret)> {
   let data_length = packed_data.len();
   if data_length < MINIMUM_QUERY_DATA_LENGTH {
     return Err(ChatrouilleError::NotEnoughData);
@@ -197,24 +192,21 @@ pub fn unpack_query(
   };
 
   let mode_byte = mode.clone() as u8;
-  let symmetric_key = match key_utils::derive_shared_secret_to_sym_key(&shared_secret, &[mode_byte])
-  {
-    Ok(symmetric_key) => symmetric_key,
-    Err(_) => return Err(ChatrouilleError::KeyDerivationError),
-  };
+  let symmetric_key = key_utils::derive_shared_secret_to_sym_key(&shared_secret, &[mode_byte])
+    .context(KeyDerivationError)?;
 
   let aead_bytes =
     &packed_data[PACKET_VERSION_LENGTH + MODE_LENGTH + CLIENT_PUBLIC_KEY_LENGTH..data_length];
 
-  let raw_data = match unpack(aead_bytes, symmetric_key) {
-    Ok(data) => data,
-    Err(error) => return Err(error),
-  };
+  let raw_data = unpack(aead_bytes, symmetric_key)?;
 
   return Ok((raw_data, mode, shared_secret));
 }
 
-pub fn unpack_response(packed_data: Vec<u8>, shared_secret: &x448::SharedSecret) -> Result<Vec<u8>, ChatrouilleError> {
+pub fn unpack_response(
+  packed_data: Vec<u8>,
+  shared_secret: &x448::SharedSecret,
+) -> Result<Vec<u8>> {
   let data_length = packed_data.len();
   if data_length < MINIMUM_RESPONSE_DATA_LENGTH {
     return Err(ChatrouilleError::NotEnoughData);
@@ -231,30 +223,19 @@ pub fn unpack_response(packed_data: Vec<u8>, shared_secret: &x448::SharedSecret)
   }
 
   let mode_byte = mode.clone() as u8;
-  let symmetric_key = match key_utils::derive_shared_secret_to_sym_key(&shared_secret, &[mode_byte])
-  {
-    Ok(symmetric_key) => symmetric_key,
-    Err(_) => return Err(ChatrouilleError::KeyDerivationError),
-  };
+  let symmetric_key = key_utils::derive_shared_secret_to_sym_key(&shared_secret, &[mode_byte])
+    .context(KeyDerivationError)?;
 
-  let aead_bytes =
-    &packed_data[PACKET_VERSION_LENGTH + MODE_LENGTH ..data_length];
+  let aead_bytes = &packed_data[PACKET_VERSION_LENGTH + MODE_LENGTH..data_length];
 
-  let raw_data = match unpack(aead_bytes, symmetric_key) {
-    Ok(data) => data,
-    Err(error) => return Err(error),
-  };
+  let raw_data = unpack(aead_bytes, symmetric_key)?;
 
   return Ok(raw_data);
 }
 
-fn unpack(encrypted_data: &[u8], symmetric_key: orion::aead::SecretKey) -> Result<Vec<u8>, ChatrouilleError> {
-  let decrypted = match orion::aead::open(&symmetric_key, encrypted_data) {
-    Ok(encrypted) => encrypted,
-    Err(_) => return Err(ChatrouilleError::DecryptionError),
-  };
-  return match compressor::decompress(decrypted) {
-    Some(raw_data) => Ok(raw_data),
-    None => Err(ChatrouilleError::UncompressionError),
-  };
+fn unpack(encrypted_data: &[u8], symmetric_key: orion::aead::SecretKey) -> Result<Vec<u8>> {
+  let decrypted = orion::aead::open(&symmetric_key, encrypted_data).context(DecryptionError)?;
+
+  let raw_data = compressor::decompress(decrypted).context(UncompressionError)?;
+  Ok(raw_data)
 }

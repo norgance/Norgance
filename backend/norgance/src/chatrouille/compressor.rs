@@ -1,32 +1,32 @@
-pub fn compress(data: Vec<u8>) -> Option<Vec<u8>> {
-  let mut encoder = match libflate::zlib::Encoder::new(Vec::new()) {
-    Ok(encoder) => encoder,
-    Err(_) => return None,
-  };
+use snafu::{ResultExt, Snafu};
 
-  match std::io::copy(&mut &data[..], &mut encoder) {
-    Ok(_) => {}
-    Err(_) => return None,
-  }
-
-  match encoder.finish().as_result() {
-    Ok(compressed_data) => Some(compressed_data.to_owned()),
-    Err(_) => return None,
-  }
+#[derive(Debug, Snafu)]
+pub enum CompressorError {
+  #[snafu(display("EncoderError: {}", source))]
+  EncoderError { source: std::io::Error },
+  #[snafu(display("DecoderError: {}", source))]
+  DecoderError { source: std::io::Error },
 }
 
-pub fn decompress(data: Vec<u8>) -> Option<Vec<u8>> {
+pub type Result<T, E = CompressorError> = std::result::Result<T, E>;
+
+pub fn compress(data: Vec<u8>) -> Result<Vec<u8>> {
+  let mut encoder = libflate::zlib::Encoder::new(Vec::new()).context(EncoderError)?;
+
+  std::io::copy(&mut &data[..], &mut encoder).context(EncoderError)?;
+
+  let compressed_data = encoder.finish().into_result().context(EncoderError)?;
+  Ok(compressed_data.to_owned())
+}
+
+pub fn decompress(data: Vec<u8>) -> Result<Vec<u8>> {
   use std::io::Read;
-  let mut decoder = match libflate::zlib::Decoder::new(&data[..]) {
-    Ok(decoder) => decoder,
-    Err(_) => return None,
-  };
+  let mut decoder = libflate::zlib::Decoder::new(&data[..]).context(DecoderError)?;
 
   let mut decoded_data = Vec::new();
-  match decoder.read_to_end(&mut decoded_data) {
-    Ok(_) => {}
-    Err(_) => return None,
-  }
+  decoder
+    .read_to_end(&mut decoded_data)
+    .context(DecoderError)?;
 
-  return Some(decoded_data);
+  Ok(decoded_data)
 }

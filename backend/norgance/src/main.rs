@@ -11,6 +11,7 @@ extern crate diesel;
 #[macro_use]
 extern crate lazy_static;
 
+use std::borrow::Cow;
 use std::env;
 use std::sync::Arc;
 
@@ -38,8 +39,6 @@ async fn main() {
 
     //let addr = ([127, 0, 0, 1], 3000).into();
     let addr = ([0, 0, 0, 0], 3000).into();
-
-    let arc_db_pool = Arc::new(db_pool);
 
     // This is obviously only for test
     let bob_secret = x448::Secret::from_bytes(&[
@@ -90,5 +89,11 @@ async fn main() {
 
     let authentication_bearer = env::var("AUTHENTICATION_BEARER").unwrap_or(String::from("canard"));
 
-    server::server_main(arc_db_pool, addr, std::borrow::Cow::from(authentication_bearer)).await;
+    server::server_main(
+        addr,
+        Arc::new(db_pool),
+        Cow::from(authentication_bearer),
+        Arc::new(bob_secret),
+    )
+    .await;
 }

@@ -809,6 +809,7 @@ dependencies = [
  "blake2-rfc",
  "diesel",
  "diesel_migrations",
+ "futures",
  "hyper",
  "juniper",
  "juniper_hyper",
@@ -823,7 +824,6 @@ dependencies = [
  "serde",
  "serde_json",
  "snafu",
- "thiserror",
  "tokio",
  "x448",
 ]
