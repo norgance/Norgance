@@ -123,10 +123,10 @@ pub async fn chatrouille(req: Request<Body>, private_key: Arc<x448::Secret>) -> 
   let payload = chatrouille::unpack_query(lol, &private_key);
 
   match payload {
-    Ok((payload, mode, shared_secret)) => Ok(json_ok(
+    Ok((payload, _mode, _shared_secret, _signature)) => Ok(json_ok(
       json!({ "lol": std::str::from_utf8(&payload).unwrap_or("prout") }),
     )),
-    Err(x) => Ok(json_response(json!({"pasok":true}), StatusCode::UNPROCESSABLE_ENTITY)),
+    Err(x) => Ok(json_response(json!({"error":x.to_string()}), StatusCode::UNPROCESSABLE_ENTITY)),
   }
 }
 

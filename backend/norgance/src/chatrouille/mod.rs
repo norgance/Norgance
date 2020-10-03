@@ -39,9 +39,17 @@ pub enum ChatrouilleError {
   DecryptionError {
     source: orion::errors::UnknownCryptoError,
   },
+  
+  #[snafu(display("Unable to load the signature: {}", source))]
+  SignatureError {
+    source: ed25519_dalek::SignatureError,
+  },
 
   #[snafu(display("Invalid mode"))]
   InvalidMode,
+
+  #[snafu(display("Missing keypair"))]
+  MissingKeyPair,
 
   #[snafu(display("Invalid mode in data"))]
   InvalidModeInData,
@@ -64,6 +72,7 @@ pub enum Mode {
   Unknown = 0,
   Query = 81,    // Q
   Response = 82, // R
+  SignedQuery = 83, // S
 }
 
 impl From<u8> for Mode {
@@ -71,6 +80,7 @@ impl From<u8> for Mode {
     match item {
       81 => Mode::Query,
       82 => Mode::Response,
+      83 => Mode::SignedQuery,
       _ => Mode::Unknown,
     }
   }
@@ -82,14 +92,32 @@ const MODE_LENGTH: usize = 1;
 const CLIENT_PUBLIC_KEY_LENGTH: usize = 56;
 const NOUNCE_LENGTH: usize = 24;
 const TAG_LENGTH: usize = 16;
+const SIGNATURE_LENGTH: usize = 64;
 const MINIMUM_QUERY_DATA_LENGTH: usize =
   PACKET_VERSION_LENGTH + MODE_LENGTH + CLIENT_PUBLIC_KEY_LENGTH + NOUNCE_LENGTH + TAG_LENGTH;
 const MINIMUM_RESPONSE_DATA_LENGTH: usize =
   PACKET_VERSION_LENGTH + MODE_LENGTH + NOUNCE_LENGTH + TAG_LENGTH;
+const MINIMUM_SIGNED_QUERY_DATA_LENGTH: usize = MINIMUM_QUERY_DATA_LENGTH + SIGNATURE_LENGTH;
 
-pub fn pack_query(
+pub fn pack_signed_query(
   data: Vec<u8>,
   server_public_key: &x448::PublicKey,
+  client_keypair: &ed25519_dalek::Keypair,
+) -> Result<(Vec<u8>, x448::SharedSecret)>{
+  pack_query(data, server_public_key, Some(client_keypair))
+}
+
+pub fn pack_unsigned_query(
+  data: Vec<u8>,
+  server_public_key: &x448::PublicKey,
+) -> Result<(Vec<u8>, x448::SharedSecret)>{
+  pack_query(data, server_public_key, None)
+}
+
+fn pack_query(
+  data: Vec<u8>,
+  server_public_key: &x448::PublicKey,
+  client_keypair: Option<&ed25519_dalek::Keypair>,
 ) -> Result<(Vec<u8>, x448::SharedSecret)> {
   let mut rng = rand::thread_rng();
   let client_secret = x448::Secret::new(&mut rng);
@@ -107,13 +135,18 @@ pub fn pack_query(
     CLIENT_PUBLIC_KEY_LENGTH
   );
 
-  let encrypted_payload = pack(data, Mode::Query, public_key_bytes, &shared_secret)?;
+  let mode = match client_keypair {
+    Some(_) => Mode::SignedQuery,
+    None => Mode::Query,
+  };
+
+  let encrypted_payload = pack(data, mode, public_key_bytes, &shared_secret, client_keypair)?;
 
   return Ok((encrypted_payload, shared_secret));
 }
 
 pub fn pack_response(data: Vec<u8>, shared_secret: &x448::SharedSecret) -> Result<Vec<u8>> {
-  return pack(data, Mode::Response, vec![], &shared_secret);
+  return pack(data, Mode::Response, vec![], &shared_secret, None);
 }
 
 fn pack(
@@ -121,6 +154,7 @@ fn pack(
   mode: Mode,
   client_public_key_bytes: Vec<u8>,
   shared_secret: &x448::SharedSecret,
+  client_keypair: Option<&ed25519_dalek::Keypair>,
 ) -> Result<Vec<u8>> {
   let mode_byte = mode.clone() as u8;
 
@@ -141,11 +175,15 @@ fn pack(
   let packed_data_length = PACKET_VERSION_LENGTH
     + MODE_LENGTH
     + match mode {
-      Mode::Query => CLIENT_PUBLIC_KEY_LENGTH,
+      Mode::Query | Mode::SignedQuery => CLIENT_PUBLIC_KEY_LENGTH,
       Mode::Response => 0,
       _ => return Err(ChatrouilleError::InvalidMode),
     }
-    + encrypted.len();
+    + encrypted.len()
+    + match mode {
+      Mode::SignedQuery => SIGNATURE_LENGTH,
+      _ => 0,
+    };
 
   let mut packed_data: Vec<u8> = Vec::with_capacity(packed_data_length);
 
@@ -154,7 +192,19 @@ fn pack(
   if mode == Mode::Query {
     packed_data.extend(client_public_key_bytes);
   }
-  packed_data.append(&mut encrypted);
+
+  if mode == Mode::SignedQuery {
+    if client_keypair.is_none() {
+      return Err(ChatrouilleError::MissingKeyPair);
+    }
+    use ed25519_dalek::Signer;
+    // We sign first because appending the data will move the data
+    let signature = client_keypair.unwrap().sign(&encrypted);
+    packed_data.append(&mut encrypted);
+    packed_data.extend_from_slice(&signature.to_bytes());
+  } else {
+    packed_data.append(&mut encrypted);
+  }
 
   return Ok(packed_data);
 }
@@ -162,7 +212,7 @@ fn pack(
 pub fn unpack_query(
   packed_data: Vec<u8>,
   private_key: &x448::Secret,
-) -> Result<(Vec<u8>, Mode, x448::SharedSecret)> {
+) -> Result<(Vec<u8>, Mode, x448::SharedSecret, Option<ed25519_dalek::Signature>)> {
   let data_length = packed_data.len();
   if data_length < MINIMUM_QUERY_DATA_LENGTH {
     return Err(ChatrouilleError::NotEnoughData);
@@ -174,7 +224,11 @@ pub fn unpack_query(
   }
 
   let mode = Mode::from(packed_data[PACKET_VERSION_LENGTH]);
-  if mode != Mode::Query {
+  if mode == Mode::SignedQuery {
+    if data_length < MINIMUM_SIGNED_QUERY_DATA_LENGTH {
+      return Err(ChatrouilleError::NotEnoughData);
+    }
+  } else if mode != Mode::Query {
     return Err(ChatrouilleError::InvalidModeInData);
   }
 
@@ -195,12 +249,22 @@ pub fn unpack_query(
   let symmetric_key = key_utils::derive_shared_secret_to_sym_key(&shared_secret, &[mode_byte])
     .context(KeyDerivationError)?;
 
-  let aead_bytes =
-    &packed_data[PACKET_VERSION_LENGTH + MODE_LENGTH + CLIENT_PUBLIC_KEY_LENGTH..data_length];
+  let aead_bytes = match mode {
+    Mode::Query => &packed_data[PACKET_VERSION_LENGTH + MODE_LENGTH + CLIENT_PUBLIC_KEY_LENGTH..data_length],
+    Mode::SignedQuery => &packed_data[PACKET_VERSION_LENGTH + MODE_LENGTH + CLIENT_PUBLIC_KEY_LENGTH..data_length - SIGNATURE_LENGTH],
+    _ => return Err(ChatrouilleError::InvalidModeInData),
+  };
 
   let raw_data = unpack(aead_bytes, symmetric_key)?;
 
-  return Ok((raw_data, mode, shared_secret));
+  if mode == Mode::SignedQuery {
+    use std::convert::TryFrom;
+    let signature_bytes = &packed_data[data_length-SIGNATURE_LENGTH..data_length];
+    let signature = ed25519_dalek::Signature::try_from(signature_bytes).context(SignatureError)?;
+    return Ok((raw_data, mode, shared_secret, Some(signature)));
+  }
+
+  return Ok((raw_data, mode, shared_secret, None));
 }
 
 pub fn unpack_response(

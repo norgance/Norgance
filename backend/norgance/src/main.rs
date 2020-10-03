@@ -51,7 +51,7 @@ async fn main() {
     let bob_public_key = x448::PublicKey::from(&bob_secret);
 
     let (canard, _canard_secret) =
-        chatrouille::pack_query(b"Bonjour le monde.".to_vec(), &bob_public_key).unwrap();
+        chatrouille::pack_unsigned_query(b"Bonjour le monde.".to_vec(), &bob_public_key).unwrap();
     println!(
         "packed: {}\nlen: {}",
         base64::encode_config(canard.clone(), base64::STANDARD_NO_PAD),
@@ -60,7 +60,7 @@ async fn main() {
 
     let payload = chatrouille::unpack_query(canard, &bob_secret);
     match payload {
-        Ok((payload, mode, shared_secret)) => {
+        Ok((payload, mode, shared_secret, _signature)) => {
             println!(
                 "payload: {} | mode: {:?}",
                 std::str::from_utf8(&payload).unwrap_or("prout"),
