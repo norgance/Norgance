@@ -10,7 +10,7 @@ pub enum CompressorError {
 
 pub type Result<T, E = CompressorError> = std::result::Result<T, E>;
 
-pub fn compress(data: Vec<u8>) -> Result<Vec<u8>> {
+pub fn compress(data: &[u8]) -> Result<Vec<u8>> {
   let mut encoder = libflate::zlib::Encoder::new(Vec::new()).context(EncoderError)?;
 
   std::io::copy(&mut &data[..], &mut encoder).context(EncoderError)?;
@@ -19,7 +19,7 @@ pub fn compress(data: Vec<u8>) -> Result<Vec<u8>> {
   Ok(compressed_data)
 }
 
-pub fn decompress(data: Vec<u8>) -> Result<Vec<u8>> {
+pub fn decompress(data: &[u8]) -> Result<Vec<u8>> {
   use std::io::Read;
   let mut decoder = libflate::zlib::Decoder::new(&data[..]).context(DecoderError)?;
 

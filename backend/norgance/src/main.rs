@@ -1,4 +1,23 @@
-#![warn(clippy::all)]
+#![warn(
+    clippy::all,
+    clippy::restriction,
+    clippy::pedantic,
+    clippy::needless_pass_by_value,
+    clippy::result_unwrap_used,
+    clippy::clone_on_ref_ptr
+)]
+#![allow(
+    clippy::implicit_return,
+    clippy::integer_arithmetic,
+    clippy::missing_docs_in_private_items,
+    clippy::module_name_repetitions,
+    clippy::unreachable,
+    clippy::used_underscore_binding,
+    clippy::wildcard_imports,
+    clippy::else_if_without_else,
+    clippy::clone_on_ref_ptr,
+    clippy::single_match_else,
+)]
 
 mod chatrouille;
 mod db;
@@ -20,8 +39,9 @@ use std::sync::Arc;
 embed_migrations!("./migrations");
 
 #[tokio::main]
+#[allow(clippy::print_stdout, clippy::result_expect_used, clippy::option_expect_used, clippy::result_unwrap_used)]
 async fn main() {
-    let db_pool = db::create_connection_pool().expect("database");
+    let db_pool = db::create_connection_pool().expect("Unable to create connection pool");
 
     {
         let should_run_migrations = env::var("DATABASE_MIGRATIONS")
@@ -32,7 +52,7 @@ async fn main() {
         if should_run_migrations {
             println!("Running migrations");
             let connection = db_pool.get().expect("pool");
-            db::migrate(&connection).expect("migrate");
+            db::migrate(&connection).expect("Unable to migrate database");
             println!("OK");
         }
     }
@@ -49,18 +69,18 @@ async fn main() {
         0xc1, 0x20, 0xbb, 0x5e, 0xe8, 0x97, 0x2b, 0xd, 0x3e, 0x21, 0x37, 0x4c, 0x9c, 0x92, 0x1b,
         0x9, 0xd1, 0xb0, 0x36, 0x6f, 0x10, 0xb6, 0x51, 0x73, 0x99, 0x2d,
     ])
-    .unwrap();
+    .expect("Unwrap bob secret");
     let bob_public_key = x448::PublicKey::from(&bob_secret);
 
     let (canard, _canard_secret) =
-        chatrouille::pack_unsigned_query(b"Bonjour le monde.".to_vec(), &bob_public_key).unwrap();
+        chatrouille::pack_unsigned_query(b"Bonjour le monde.", &bob_public_key).unwrap();
     println!(
         "packed: {}\nlen: {}",
         base64::encode_config(canard.clone(), base64::STANDARD_NO_PAD),
         canard.len(),
     );
 
-    let payload = chatrouille::unpack_query(canard, &bob_secret);
+    let payload = chatrouille::unpack_query(&canard, &bob_secret);
     match payload {
         Ok((payload, mode, shared_secret, _signature)) => {
             println!(
@@ -69,9 +89,8 @@ async fn main() {
                 mode as u8
             );
             let canard_response =
-                chatrouille::pack_response(b"Bien le bonjour aussi".to_vec(), &shared_secret)
-                    .unwrap();
-            let payload_response = chatrouille::unpack_response(canard_response, &shared_secret);
+                chatrouille::pack_response(b"Bien le bonjour aussi", &shared_secret).unwrap();
+            let payload_response = chatrouille::unpack_response(&canard_response, &shared_secret);
             match payload_response {
                 Ok(payload) => {
                     println!(

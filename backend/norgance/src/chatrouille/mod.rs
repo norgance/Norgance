@@ -1,3 +1,5 @@
+#![allow(clippy::indexing_slicing, clippy::as_conversions)]
+
 pub mod compressor;
 pub mod key_utils;
 
@@ -86,6 +88,7 @@ impl From<u8> for Mode {
   }
 }
 
+#[allow(clippy::non_ascii_literal)]
 const PACKET_VERSION: &[u8] = "🦆".as_bytes();
 const PACKET_VERSION_LENGTH: usize = PACKET_VERSION.len();
 const MODE_LENGTH: usize = 1;
@@ -101,7 +104,7 @@ const MINIMUM_SIGNED_QUERY_DATA_LENGTH: usize = MINIMUM_QUERY_DATA_LENGTH + SIGN
 
 #[allow(dead_code)] // TODO
 pub fn pack_signed_query(
-  data: Vec<u8>,
+  data: &[u8],
   server_public_key: &x448::PublicKey,
   client_keypair: &ed25519_dalek::Keypair,
 ) -> Result<(Vec<u8>, x448::SharedSecret)>{
@@ -109,14 +112,14 @@ pub fn pack_signed_query(
 }
 
 pub fn pack_unsigned_query(
-  data: Vec<u8>,
+  data: &[u8],
   server_public_key: &x448::PublicKey,
 ) -> Result<(Vec<u8>, x448::SharedSecret)>{
   pack_query(data, server_public_key, None)
 }
 
 fn pack_query(
-  data: Vec<u8>,
+  data: &[u8],
   server_public_key: &x448::PublicKey,
   client_keypair: Option<&ed25519_dalek::Keypair>,
 ) -> Result<(Vec<u8>, x448::SharedSecret)> {
@@ -146,20 +149,21 @@ fn pack_query(
   Ok((encrypted_payload, shared_secret))
 }
 
-pub fn pack_response(data: Vec<u8>, shared_secret: &x448::SharedSecret) -> Result<Vec<u8>> {
+pub fn pack_response(data: &[u8], shared_secret: &x448::SharedSecret) -> Result<Vec<u8>> {
   pack(data, Mode::Response, vec![], &shared_secret, None)
 }
 
+#[allow(clippy::needless_pass_by_value)]
 fn pack(
-  data: Vec<u8>,
-  mode: Mode,
+  data: &[u8],
+  mode: Mode, 
   client_public_key_bytes: Vec<u8>,
   shared_secret: &x448::SharedSecret,
   client_keypair: Option<&ed25519_dalek::Keypair>,
 ) -> Result<Vec<u8>> {
   let mode_byte = mode.clone() as u8;
 
-  let mut compressed = compressor::compress(data).context(CompressionError)?;
+  let mut compressed = compressor::compress(&data).context(CompressionError)?;
 
   // To slightly improve the privacy, we pad all
   // compressed messages with zeros to have a final size which is a multiple of 32.
@@ -178,12 +182,12 @@ fn pack(
     + match mode {
       Mode::Query | Mode::SignedQuery => CLIENT_PUBLIC_KEY_LENGTH,
       Mode::Response => 0,
-      _ => return Err(ChatrouilleError::InvalidMode),
+      Mode::Unknown => return Err(ChatrouilleError::InvalidMode),
     }
     + encrypted.len()
     + match mode {
       Mode::SignedQuery => SIGNATURE_LENGTH,
-      _ => 0,
+      Mode::Query | Mode::Response | Mode::Unknown => 0,
     };
 
   let mut packed_data: Vec<u8> = Vec::with_capacity(packed_data_length);
@@ -196,14 +200,18 @@ fn pack(
   packed_data.append(&mut encrypted);
 
   if mode == Mode::SignedQuery {
-    if client_keypair.is_none() {
-      return Err(ChatrouilleError::MissingKeyPair);
-    }
     use ed25519_dalek::Signer;
+
+    let keypair = match client_keypair {
+      Some(ckp) => ckp,
+      None => 
+      return Err(ChatrouilleError::MissingKeyPair),
+    };
+
     // We sign first because appending the data will move the data
 
     // blake2b
-    let signature = client_keypair.unwrap().sign(&packed_data);
+    let signature = keypair.sign(&packed_data);
 
     packed_data.extend_from_slice(&signature.to_bytes());
   }
@@ -212,7 +220,7 @@ fn pack(
 }
 
 pub fn unpack_query(
-  packed_data: Vec<u8>,
+  packed_data: &[u8],
   private_key: &x448::Secret,
 ) -> Result<(Vec<u8>, Mode, x448::SharedSecret, Option<ed25519_dalek::Signature>)> {
   let data_length = packed_data.len();
@@ -254,10 +262,10 @@ pub fn unpack_query(
   let aead_bytes = match mode {
     Mode::Query => &packed_data[PACKET_VERSION_LENGTH + MODE_LENGTH + CLIENT_PUBLIC_KEY_LENGTH..data_length],
     Mode::SignedQuery => &packed_data[PACKET_VERSION_LENGTH + MODE_LENGTH + CLIENT_PUBLIC_KEY_LENGTH..data_length - SIGNATURE_LENGTH],
-    _ => return Err(ChatrouilleError::InvalidModeInData),
+    Mode::Response | Mode::Unknown => return Err(ChatrouilleError::InvalidModeInData),
   };
 
-  let raw_data = unpack(aead_bytes, symmetric_key)?;
+  let raw_data = unpack(aead_bytes, &symmetric_key)?;
 
   if mode == Mode::SignedQuery {
     use std::convert::TryFrom;
@@ -270,7 +278,7 @@ pub fn unpack_query(
 }
 
 pub fn unpack_response(
-  packed_data: Vec<u8>,
+  packed_data: &[u8],
   shared_secret: &x448::SharedSecret,
 ) -> Result<Vec<u8>> {
   let data_length = packed_data.len();
@@ -294,14 +302,14 @@ pub fn unpack_response(
 
   let aead_bytes = &packed_data[PACKET_VERSION_LENGTH + MODE_LENGTH..data_length];
 
-  let raw_data = unpack(aead_bytes, symmetric_key)?;
+  let raw_data = unpack(aead_bytes, &symmetric_key)?;
 
   Ok(raw_data)
 }
 
-fn unpack(encrypted_data: &[u8], symmetric_key: orion::aead::SecretKey) -> Result<Vec<u8>> {
-  let decrypted = orion::aead::open(&symmetric_key, encrypted_data).context(DecryptionError)?;
+fn unpack(encrypted_data: &[u8], symmetric_key: &orion::aead::SecretKey) -> Result<Vec<u8>> {
+  let decrypted = orion::aead::open(symmetric_key, encrypted_data).context(DecryptionError)?;
 
-  let raw_data = compressor::decompress(decrypted).context(UncompressionError)?;
+  let raw_data = compressor::decompress(&decrypted).context(UncompressionError)?;
   Ok(raw_data)
 }

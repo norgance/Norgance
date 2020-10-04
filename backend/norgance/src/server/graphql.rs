@@ -43,6 +43,7 @@ pub struct CitizenPublicKeys {
     public_ed25519_dalek: String,
 }
 
+#[allow(clippy::struct_excessive_bools)]
 #[derive(juniper::GraphQLObject, Clone)]
 pub struct CitizenRegistrationResult {
     success: bool,
@@ -154,6 +155,11 @@ impl Mutation {
         context: &Ctx,
         registration: CitizenRegistration,
     ) -> FieldResult<CitizenRegistrationResult> {
+        use crate::db::models::{Citizen, NewCitizen};
+        use crate::db::schema::citizens;
+        use diesel::prelude::*;
+
+
         // This is not very nice
         let mut result = CitizenRegistrationResult {
             success: false,
@@ -178,10 +184,6 @@ impl Mutation {
         {
             return Ok(result);
         }
-
-        use crate::db::models::{Citizen, NewCitizen};
-        use crate::db::schema::citizens;
-        use diesel::prelude::*;
 
         // Glue
         let new_citizen = NewCitizen {

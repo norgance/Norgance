@@ -16,15 +16,16 @@ pub enum NorganceChatrouilleError {
   TooBig,
 }
 
-pub fn json_response(json: serde_json::value::Value, status: StatusCode) -> Response<Body> {
+#[allow(clippy::result_expect_used)]
+pub fn json_response(json: &serde_json::value::Value, status: StatusCode) -> Response<Body> {
   Response::builder()
     .status(status)
     .header(hyper::header::CONTENT_TYPE, "application/json")
-    .body(Body::from(serde_json::to_vec(&json).unwrap()))
-    .unwrap()
+    .body(Body::from(serde_json::to_vec(&json).expect("Unable to serialize json")))
+    .expect("Unable to build json response")
 }
 
-pub fn json_ok(json: serde_json::value::Value) -> Response<Body>{
+pub fn json_ok(json: &serde_json::value::Value) -> Response<Body>{
   json_response(json, StatusCode::OK)
 }
 
@@ -66,20 +67,22 @@ pub async fn graphql(
   juniper_hyper::graphql(root_node, context_for_query, req).await
 }
 
+#[allow(clippy::needless_pass_by_value)]
 pub fn health(arc_db_pool: Arc<db::DbPool>) -> ResultHandler {
   let ok = match arc_db_pool.get() {
     Ok(db) => db::health_check(&db).is_ok(),
     Err(_) => false,
   };
-  Ok(json_ok(json!({ "available": ok })))
+  Ok(json_ok(&json!({ "available": ok })))
 }
 
+#[allow(clippy::result_expect_used)]
 pub fn not_found() -> ResultHandler {
   Ok(
     Response::builder()
       .status(StatusCode::NOT_FOUND)
       .body(Body::empty())
-      .unwrap(),
+      .expect("Unable to build not found response"),
   )
 }
 
@@ -103,7 +106,7 @@ pub async fn chatrouille(req: Request<Body>, private_key: Arc<x448::Secret>) -> 
   };
 
   if body_too_long {
-    return Ok(json_response(json!({
+    return Ok(json_response(&json!({
       "error": "payload too large"
     }), StatusCode::PAYLOAD_TOO_LARGE));
   }
@@ -117,18 +120,18 @@ pub async fn chatrouille(req: Request<Body>, private_key: Arc<x448::Secret>) -> 
     0x36, 0x6f, 0x10, 0xb6, 0x51, 0x73, 0x99, 0x2d,
   ])
   .unwrap();*/
-  let payload = chatrouille::unpack_query(lol, &private_key);
+  let payload = chatrouille::unpack_query(&lol, &private_key);
 
   match payload {
     Ok((payload, _mode, _shared_secret, _signature)) => Ok(json_ok(
-      json!({ "lol": std::str::from_utf8(&payload).unwrap_or("prout") }),
+      &json!({ "lol": std::str::from_utf8(&payload).unwrap_or("prout") }),
     )),
-    Err(x) => Ok(json_response(json!({"error":x.to_string()}), StatusCode::UNPROCESSABLE_ENTITY)),
+    Err(x) => Ok(json_response(&json!({"error":x.to_string()}), StatusCode::UNPROCESSABLE_ENTITY)),
   }
 }
 
 pub fn chatrouille_public_key() -> ResultHandler {
-  Ok(json_ok(json!({
+  Ok(json_ok(&json!({
           "public_key": "abc",
           "signature": "efg"
   })))
