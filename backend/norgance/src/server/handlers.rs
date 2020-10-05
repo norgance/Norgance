@@ -120,11 +120,14 @@ pub async fn chatrouille(req: Request<Body>, private_key: Arc<x448::Secret>) -> 
     0x36, 0x6f, 0x10, 0xb6, 0x51, 0x73, 0x99, 0x2d,
   ])
   .unwrap();*/
+
+  let signature_public_key = ed25519_dalek::PublicKey::from_bytes(&[150, 127, 250, 175, 4, 5, 165, 182, 0, 152, 68, 29, 53, 140, 101, 192, 170, 86, 140, 19, 38, 98, 146, 248, 217, 243, 144, 43, 181, 118, 12, 171]).expect("prout");
+
   let payload = chatrouille::unpack_query(&lol, &private_key);
 
   match payload {
-    Ok((payload, _mode, _shared_secret, _signature)) => Ok(json_ok(
-      &json!({ "lol": std::str::from_utf8(&payload).unwrap_or("prout") }),
+    Ok(unpacked_query) => Ok(json_ok(
+      &json!({ "lol": std::str::from_utf8(&unpacked_query.payload).unwrap_or("prout") }),
     )),
     Err(x) => Ok(json_response(&json!({"error":x.to_string()}), StatusCode::UNPROCESSABLE_ENTITY)),
   }

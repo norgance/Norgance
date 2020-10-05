@@ -16,7 +16,7 @@
     clippy::wildcard_imports,
     clippy::else_if_without_else,
     clippy::clone_on_ref_ptr,
-    clippy::single_match_else,
+    clippy::single_match_else
 )]
 
 mod chatrouille;
@@ -39,7 +39,12 @@ use std::sync::Arc;
 embed_migrations!("./migrations");
 
 #[tokio::main]
-#[allow(clippy::print_stdout, clippy::result_expect_used, clippy::option_expect_used, clippy::result_unwrap_used)]
+#[allow(
+    clippy::print_stdout,
+    clippy::result_expect_used,
+    clippy::option_expect_used,
+    clippy::result_unwrap_used
+)]
 async fn main() {
     let db_pool = db::create_connection_pool().expect("Unable to create connection pool");
 
@@ -72,8 +77,33 @@ async fn main() {
     .expect("Unwrap bob secret");
     let bob_public_key = x448::PublicKey::from(&bob_secret);
 
+    let keypair = ed25519_dalek::Keypair::from_bytes(&[46, 132, 86, 217, 108, 106, 16, 143, 86, 20, 150, 48, 236, 132, 24, 1, 197, 235, 183, 200, 148, 75, 24, 203, 228, 31, 166, 18, 122, 29, 90, 151, 176, 102, 32, 203, 59, 181, 83, 5, 128, 168, 162, 97, 165, 225, 237, 64, 2, 175, 178, 90, 221, 38, 99, 22, 17, 8, 27, 69, 13, 19, 6, 121])
+    .expect("Unwrap keypair");
+    /*let keypair : ed25519_dalek::Keypair;
+    {
+        use ed25519_dalek::Keypair;
+        use rand::rngs::OsRng;
+        let mut csprng = OsRng {};
+        keypair = Keypair::generate(&mut csprng);
+       
+        let prout = keypair.to_bytes().to_vec();
+        println!(
+            "keypair: {:?}",
+            prout,
+        );
+
+        let pubkey = keypair.public.to_bytes();
+        println!(
+            "pubkey: {}\npubkey debug: {:?}",
+            base64::encode_config(pubkey.clone(), base64::STANDARD_NO_PAD),
+            pubkey,
+        );
+    }*/
+
     let (canard, _canard_secret) =
-        chatrouille::pack_unsigned_query(b"Bonjour le monde.", &bob_public_key).unwrap();
+        //chatrouille::pack_unsigned_query(b"Bonjour le monde.", &bob_public_key).unwrap();
+        chatrouille::pack_signed_query(b"Bonjour le monde.", &bob_public_key, &keypair).unwrap();
+
     println!(
         "packed: {}\nlen: {}",
         base64::encode_config(canard.clone(), base64::STANDARD_NO_PAD),
@@ -82,15 +112,21 @@ async fn main() {
 
     let payload = chatrouille::unpack_query(&canard, &bob_secret);
     match payload {
-        Ok((payload, mode, shared_secret, _signature)) => {
+        Ok(unpacked_query) => {
+            use chatrouille::VerifyUnpackedQuerySignature;
             println!(
                 "payload: {} | mode: {:?}",
-                std::str::from_utf8(&payload).unwrap_or("prout"),
-                mode as u8
+                std::str::from_utf8(&unpacked_query.payload).unwrap_or("prout"),
+                unpacked_query.mode as u8
             );
+            let signed = match unpacked_query.signature {
+                Some(signature) => signature.verify(&keypair.public).is_ok(),
+                None => false,
+            };
+            println!("signed: {}", signed);
             let canard_response =
-                chatrouille::pack_response(b"Bien le bonjour aussi", &shared_secret).unwrap();
-            let payload_response = chatrouille::unpack_response(&canard_response, &shared_secret);
+                chatrouille::pack_response(b"Bien le bonjour aussi", &unpacked_query.shared_secret).unwrap();
+            let payload_response = chatrouille::unpack_response(&canard_response, &unpacked_query.shared_secret);
             match payload_response {
                 Ok(payload) => {
                     println!(

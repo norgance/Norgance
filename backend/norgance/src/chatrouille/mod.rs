@@ -46,6 +46,11 @@ pub enum ChatrouilleError {
   SignatureError {
     source: ed25519_dalek::SignatureError,
   },
+  
+  #[snafu(display("Unable to verify the signature: {}", source))]
+  VerifySignatureError {
+    source: ed25519_dalek::SignatureError,
+  },
 
   #[snafu(display("Invalid mode"))]
   InvalidMode,
@@ -101,6 +106,24 @@ const MINIMUM_QUERY_DATA_LENGTH: usize =
 const MINIMUM_RESPONSE_DATA_LENGTH: usize =
   PACKET_VERSION_LENGTH + MODE_LENGTH + NOUNCE_LENGTH + TAG_LENGTH;
 const MINIMUM_SIGNED_QUERY_DATA_LENGTH: usize = MINIMUM_QUERY_DATA_LENGTH + SIGNATURE_LENGTH;
+const SIGNATURE_BLAKE2B_HASH_SIZE: usize = 64;
+
+pub struct UnpackedQuery {
+  pub payload: Vec<u8>,
+  pub mode: Mode,
+  pub shared_secret: x448::SharedSecret,
+  pub signature: Option<UnpackedQuerySignature>,
+}
+
+pub struct UnpackedQuerySignature {
+  query_hash: Vec<u8>,
+  signature: ed25519_dalek::Signature,
+}
+
+pub trait VerifyUnpackedQuerySignature {
+  fn verify(&self, public_key: &ed25519_dalek::PublicKey) -> Result<()>;
+}
+
 
 #[allow(dead_code)] // TODO
 pub fn pack_signed_query(
@@ -111,6 +134,7 @@ pub fn pack_signed_query(
   pack_query(data, server_public_key, Some(client_keypair))
 }
 
+#[allow(dead_code)] // TODO
 pub fn pack_unsigned_query(
   data: &[u8],
   server_public_key: &x448::PublicKey,
@@ -194,13 +218,14 @@ fn pack(
 
   packed_data.extend(PACKET_VERSION);
   packed_data.push(mode_byte);
-  if mode == Mode::Query {
+  if mode == Mode::Query || mode == Mode::SignedQuery {
     packed_data.extend(client_public_key_bytes);
   }
   packed_data.append(&mut encrypted);
 
   if mode == Mode::SignedQuery {
     use ed25519_dalek::Signer;
+    use blake2_rfc::blake2b::blake2b;
 
     let keypair = match client_keypair {
       Some(ckp) => ckp,
@@ -209,11 +234,12 @@ fn pack(
     };
 
     // We sign first because appending the data will move the data
+    let packet_hash = blake2b(SIGNATURE_BLAKE2B_HASH_SIZE, b"prout", &packed_data);
+    let packet_hash_bytes = packet_hash.as_bytes();
+    let signature = keypair.sign(packet_hash_bytes);
+    let bytes = &signature.to_bytes();
 
-    // blake2b
-    let signature = keypair.sign(&packed_data);
-
-    packed_data.extend_from_slice(&signature.to_bytes());
+    packed_data.extend_from_slice(bytes);
   }
 
   Ok(packed_data)
@@ -222,7 +248,8 @@ fn pack(
 pub fn unpack_query(
   packed_data: &[u8],
   private_key: &x448::Secret,
-) -> Result<(Vec<u8>, Mode, x448::SharedSecret, Option<ed25519_dalek::Signature>)> {
+//) -> Result<(Vec<u8>, Mode, x448::SharedSecret, Option<(ed25519_dalek::Signature, Vec<u8>)>)> {
+) -> Result<UnpackedQuery> {
   let data_length = packed_data.len();
   if data_length < MINIMUM_QUERY_DATA_LENGTH {
     return Err(ChatrouilleError::NotEnoughData);
@@ -269,12 +296,31 @@ pub fn unpack_query(
 
   if mode == Mode::SignedQuery {
     use std::convert::TryFrom;
+    use ed25519_dalek::Signature;
+    use blake2_rfc::blake2b::blake2b;
+
     let signature_bytes = &packed_data[data_length-SIGNATURE_LENGTH..data_length];
-    let signature = ed25519_dalek::Signature::try_from(signature_bytes).context(SignatureError)?;
-    return Ok((raw_data, mode, shared_secret, Some(signature)));
+    let everything_else_bytes = &packed_data[0..data_length-SIGNATURE_LENGTH];
+    let packet_hash = blake2b(SIGNATURE_BLAKE2B_HASH_SIZE, b"prout", &everything_else_bytes);
+    let signature = Signature::try_from(signature_bytes).context(SignatureError)?;
+
+    return Ok(UnpackedQuery{
+      payload: raw_data,
+      mode,
+      shared_secret,
+      signature: Some(UnpackedQuerySignature{
+        query_hash: packet_hash.as_bytes().to_vec(),
+        signature,
+      }), 
+    });
   }
 
-  Ok((raw_data, mode, shared_secret, None))
+  Ok(UnpackedQuery{
+    payload: raw_data,
+    mode,
+    shared_secret,
+    signature: None, 
+  })
 }
 
 pub fn unpack_response(
@@ -312,4 +358,11 @@ fn unpack(encrypted_data: &[u8], symmetric_key: &orion::aead::SecretKey) -> Resu
 
   let raw_data = compressor::decompress(&decrypted).context(UncompressionError)?;
   Ok(raw_data)
+}
+
+impl VerifyUnpackedQuerySignature for UnpackedQuerySignature {
+  fn verify(&self, public_key: &ed25519_dalek::PublicKey) -> Result<()> {
+    public_key.verify_strict(&self.query_hash, &self.signature).context(VerifySignatureError)?;
+    Ok(())
+  }
 }
