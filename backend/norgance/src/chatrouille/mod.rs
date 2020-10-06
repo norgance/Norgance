@@ -372,3 +372,70 @@ impl VerifyUnpackedQuerySignature for UnpackedQuerySignature {
     Ok(())
   }
 }
+
+#[allow(clippy::panic, clippy::result_expect_used, clippy::option_expect_used)]
+#[cfg(test)]
+mod tests {
+  use super::*;
+
+  #[test]
+  fn main_revival() {
+    // This is obviously only for test
+    let bob_secret = x448::Secret::from_bytes(&[
+      0x1c, 0x30, 0x6a, 0x7a, 0xc2, 0xa0, 0xe2, 0xe0, 0x99, 0xb, 0x29, 0x44, 0x70, 0xcb, 0xa3,
+      0x39, 0xe6, 0x45, 0x37, 0x72, 0xb0, 0x75, 0x81, 0x1d, 0x8f, 0xad, 0xd, 0x1d, 0x69, 0x27,
+      0xc1, 0x20, 0xbb, 0x5e, 0xe8, 0x97, 0x2b, 0xd, 0x3e, 0x21, 0x37, 0x4c, 0x9c, 0x92, 0x1b, 0x9,
+      0xd1, 0xb0, 0x36, 0x6f, 0x10, 0xb6, 0x51, 0x73, 0x99, 0x2d,
+    ])
+    .expect("Unwrap bob secret");
+    let bob_public_key = x448::PublicKey::from(&bob_secret);
+
+    let keypair = ed25519_dalek::Keypair::from_bytes(&[
+      46, 132, 86, 217, 108, 106, 16, 143, 86, 20, 150, 48, 236, 132, 24, 1, 197, 235, 183, 200,
+      148, 75, 24, 203, 228, 31, 166, 18, 122, 29, 90, 151, 176, 102, 32, 203, 59, 181, 83, 5, 128,
+      168, 162, 97, 165, 225, 237, 64, 2, 175, 178, 90, 221, 38, 99, 22, 17, 8, 27, 69, 13, 19, 6,
+      121,
+    ])
+    .expect("Unwrap keypair");
+
+    let pubkey = keypair.public.to_bytes();
+
+    let (canard, _canard_secret) =
+      pack_signed_query(b"Bonjour le monde.", &bob_public_key, &keypair).expect("pack signed query");
+
+    println!(
+      "packed: {}\nlen: {}",
+      base64::encode_config(canard.clone(), base64::STANDARD_NO_PAD),
+      canard.len(),
+    );
+
+    let payload = unpack_query(&canard, &bob_secret);
+    match payload {
+      Ok(unpacked_query) => {
+        println!(
+          "payload: {} | mode: {:?}",
+          std::str::from_utf8(&unpacked_query.payload).unwrap_or("prout"),
+          unpacked_query.mode as u8
+        );
+        let signed = match unpacked_query.signature {
+          Some(signature) => signature.verify(&keypair.public).is_ok(),
+          None => false,
+        };
+        assert_eq!(signed, true);
+        let canard_response =
+          pack_response(b"Bien le bonjour aussi", &unpacked_query.shared_secret).expect("pack response");
+        let payload_response = unpack_response(&canard_response, &unpacked_query.shared_secret);
+        match payload_response {
+          Ok(payload) => {
+            println!(
+              "payload response: {}",
+              std::str::from_utf8(&payload).unwrap_or("prout"),
+            );
+          }
+          Err(_) => panic!("oops 1"),
+        }
+      }
+      Err(_) => panic!("oops 2"),
+    };
+  }
+}
