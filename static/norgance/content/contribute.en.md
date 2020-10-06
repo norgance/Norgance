@@ -25,4 +25,4 @@ At this stage of the project, Norgance has no money in any currency. This mean t
 
 ### License
 
-The current license is the OpenSource [Unlicense](https://unlicense.org), which in short means that anyone is free to do whatever they want with the sofware code but they cannot ask for liability or warranty.
+The current license is the [Creative Commons CC0](https://creativecommons.org/publicdomain/zero/1.0/), which in short means that Norgance and its sofware is in the public domain.
