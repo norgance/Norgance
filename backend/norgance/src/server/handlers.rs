@@ -21,12 +21,26 @@ pub fn json_response(json: &serde_json::value::Value, status: StatusCode) -> Res
   Response::builder()
     .status(status)
     .header(hyper::header::CONTENT_TYPE, "application/json")
-    .body(Body::from(serde_json::to_vec(&json).expect("Unable to serialize json")))
+    .body(Body::from(
+      serde_json::to_vec(&json).expect("Unable to serialize json"),
+    ))
     .expect("Unable to build json response")
 }
 
-pub fn json_ok(json: &serde_json::value::Value) -> Response<Body>{
+pub fn json_ok(json: &serde_json::value::Value) -> Response<Body> {
   json_response(json, StatusCode::OK)
+}
+
+pub fn json_error<T>(error: T, status: StatusCode) -> Response<Body>
+where
+  T: std::fmt::Display,
+{
+  json_response(
+    &json!({
+      "error": error.to_string(),
+    }),
+    status,
+  )
 }
 
 type ResultHandler = Result<Response<Body>, hyper::Error>;
@@ -91,14 +105,17 @@ pub async fn chatrouille(req: Request<Body>, private_key: Arc<x448::Secret>) -> 
 
   let body = req.into_body();
   let (entire_body, body_too_long) = match body
-    .try_fold((Vec::new(), false), |(mut data, too_long), chunk| async move {
-      if too_long || data.len() + chunk.len() > 4200 {
-        Ok((data, true))
-      } else {
-        data.extend_from_slice(&chunk);
-        Ok((data, false))
-      }
-    })
+    .try_fold(
+      (Vec::new(), false),
+      |(mut data, too_long), chunk| async move {
+        if too_long || data.len() + chunk.len() > 4200 {
+          Ok((data, true))
+        } else {
+          data.extend_from_slice(&chunk);
+          Ok((data, false))
+        }
+      },
+    )
     .await
   {
     Ok(body) => body,
@@ -106,9 +123,12 @@ pub async fn chatrouille(req: Request<Body>, private_key: Arc<x448::Secret>) -> 
   };
 
   if body_too_long {
-    return Ok(json_response(&json!({
-      "error": "payload too large"
-    }), StatusCode::PAYLOAD_TOO_LARGE));
+    return Ok(json_response(
+      &json!({
+        "error": "payload too large"
+      }),
+      StatusCode::PAYLOAD_TOO_LARGE,
+    ));
   }
 
   let lol = entire_body; //base64::decode(entire_body).expect("prout");
@@ -121,15 +141,32 @@ pub async fn chatrouille(req: Request<Body>, private_key: Arc<x448::Secret>) -> 
   ])
   .unwrap();*/
 
-  let signature_public_key = ed25519_dalek::PublicKey::from_bytes(&[150, 127, 250, 175, 4, 5, 165, 182, 0, 152, 68, 29, 53, 140, 101, 192, 170, 86, 140, 19, 38, 98, 146, 248, 217, 243, 144, 43, 181, 118, 12, 171]).expect("prout");
+  let signature_public_key = ed25519_dalek::PublicKey::from_bytes(&[
+    176, 102, 32, 203, 59, 181, 83, 5, 128, 168, 162, 97, 165, 225, 237, 64, 2, 175, 178, 90, 221,
+    38, 99, 22, 17, 8, 27, 69, 13, 19, 6, 121,
+  ])
+  .expect("prout");
 
   let payload = chatrouille::unpack_query(&lol, &private_key);
 
   match payload {
-    Ok(unpacked_query) => Ok(json_ok(
-      &json!({ "lol": std::str::from_utf8(&unpacked_query.payload).unwrap_or("prout") }),
-    )),
-    Err(x) => Ok(json_response(&json!({"error":x.to_string()}), StatusCode::UNPROCESSABLE_ENTITY)),
+    Ok(unpacked_query) => {
+      use chatrouille::VerifyUnpackedQuerySignature;
+      let signed = match unpacked_query.signature {
+        Some(signature) => match signature.verify(&signature_public_key) {
+          Ok(()) => true,
+          Err(x) => {
+            return Ok(json_error(x, StatusCode::FORBIDDEN));
+          }
+        },
+        None => false,
+      };
+      Ok(json_ok(&json!({
+        "lol": std::str::from_utf8(&unpacked_query.payload).unwrap_or("prout"),
+        "signed": signed
+      })))
+    }
+    Err(x) => Ok(json_error(x, StatusCode::UNPROCESSABLE_ENTITY)),
   }
 }
 
