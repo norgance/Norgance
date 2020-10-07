@@ -380,7 +380,6 @@ mod tests {
 
   #[test]
   fn main_revival() {
-    // This is obviously only for test
     let bob_secret = x448::Secret::from_bytes(&[
       0x1c, 0x30, 0x6a, 0x7a, 0xc2, 0xa0, 0xe2, 0xe0, 0x99, 0xb, 0x29, 0x44, 0x70, 0xcb, 0xa3,
       0x39, 0xe6, 0x45, 0x37, 0x72, 0xb0, 0x75, 0x81, 0x1d, 0x8f, 0xad, 0xd, 0x1d, 0x69, 0x27,
@@ -401,7 +400,8 @@ mod tests {
     let pubkey = keypair.public.to_bytes();
 
     let (canard, _canard_secret) =
-      pack_signed_query(b"Bonjour le monde.", &bob_public_key, &keypair).expect("pack signed query");
+      pack_signed_query(b"Bonjour le monde.", &bob_public_key, &keypair)
+        .expect("pack signed query");
 
     println!(
       "packed: {}\nlen: {}",
@@ -423,7 +423,8 @@ mod tests {
         };
         assert_eq!(signed, true);
         let canard_response =
-          pack_response(b"Bien le bonjour aussi", &unpacked_query.shared_secret).expect("pack response");
+          pack_response(b"Bien le bonjour aussi", &unpacked_query.shared_secret)
+            .expect("pack response");
         let payload_response = unpack_response(&canard_response, &unpacked_query.shared_secret);
         match payload_response {
           Ok(payload) => {
@@ -437,5 +438,49 @@ mod tests {
       }
       Err(_) => panic!("oops 2"),
     };
+  }
+
+  #[test]
+  fn test_unsigned() {
+    let server_private_key = key_utils::gen_private_key();
+    let server_public_key = key_utils::gen_public_key(&server_private_key);
+
+    let query_a = pack_unsigned_query(b"top secret data", &server_public_key).unwrap();
+    let query_b = pack_unsigned_query(b"top secret data", &server_public_key).unwrap();
+
+    // Check that each query has a different secret
+    assert_ne!(query_a.1.as_bytes().to_vec(), query_b.1.as_bytes().to_vec());
+
+    let unpack_query_a = unpack_query(&query_a.0, &server_private_key).unwrap();
+    let unpack_query_b = unpack_query(&query_b.0, &server_private_key).unwrap();
+
+    assert!(unpack_query_a.mode == Mode::Query);
+    assert_eq!(unpack_query_a.payload, b"top secret data");
+    assert!(unpack_query_a.signature.is_none());
+
+    let shared_secret_a = unpack_query_a.shared_secret;
+    let shared_secret_b = unpack_query_b.shared_secret;
+
+    assert_ne!(
+      shared_secret_a.as_bytes().to_vec(),
+      shared_secret_b.as_bytes().to_vec()
+    );
+
+    let response_a = pack_response(b"indeed it's secret", &shared_secret_a).unwrap();
+    let response_b = pack_response(b"indeed it's secret", &shared_secret_b).unwrap();
+    assert_ne!(response_a, response_b);
+
+    let unpack_response_a = unpack_response(&response_a, &shared_secret_a).unwrap();
+    let unpack_response_b = unpack_response(&response_b, &shared_secret_b).unwrap();
+
+    assert_eq!(unpack_response_a, b"indeed it's secret");
+    assert_eq!(unpack_response_b, b"indeed it's secret");
+  }
+
+  #[test]
+  fn test_problems() {
+    let server_private_key = key_utils::gen_private_key();
+    let server_public_key = key_utils::gen_public_key(&server_private_key);
+
   }
 }
