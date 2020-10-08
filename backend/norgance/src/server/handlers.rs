@@ -176,3 +176,78 @@ pub fn chatrouille_public_key() -> ResultHandler {
           "signature": "efg"
   })))
 }
+
+#[cfg(test)]
+mod tests {
+  use super::*;
+  use chatrouille::key_utils;
+  use tokio_test::block_on;
+
+  fn read_body(response: Response<Body>) -> Vec<u8> {
+    use futures::TryStreamExt;
+    block_on(
+      response
+        .into_body()
+        .try_fold(Vec::new(), |mut data, chunk| async move {
+          data.extend_from_slice(&chunk);
+          Ok(data)
+        }),
+    )
+    .unwrap()
+  }
+
+  fn body_contains(response: Response<Body>, text: &str) -> bool {
+    let body = read_body(response);
+    let body_text = std::str::from_utf8(&body).unwrap();
+    body_text.contains(text)
+  }
+
+  #[test]
+  fn test_chatrouille_empty() {
+    let private_key = key_utils::gen_private_key();
+    // let public_key = key_utils::gen_public_key(&private_key);
+
+    // Empty
+    let request = Request::builder().body(Body::empty()).unwrap();
+    let response = block_on(chatrouille(request, Arc::new(private_key))).unwrap();
+    assert_eq!(response.status(), StatusCode::UNPROCESSABLE_ENTITY);
+    assert!(body_contains(response, "too small"));
+  }
+
+  #[test]
+  fn test_chatrouille_random() {
+    let private_key = key_utils::gen_private_key();
+
+    // Random data
+    use rand::prelude::*;
+    let mut random_data = [0u8; 256];
+    rand::thread_rng().fill_bytes(&mut random_data);
+    // Make sure the prefix is always invalid
+    random_data[0] = 0;
+
+    let request = Request::builder()
+      .body(Body::from(random_data.to_vec()))
+      .unwrap();
+    let response = block_on(chatrouille(request, Arc::new(private_key))).unwrap();
+    assert_eq!(response.status(), StatusCode::UNPROCESSABLE_ENTITY);
+    assert!(body_contains(response, "prefix is invalid"));
+  }
+
+  #[test]
+  fn test_chatrouille_wrong_public_key() {
+    let private_key = key_utils::gen_private_key();
+    let another_private_key = key_utils::gen_private_key();
+    let another_public_key = key_utils::gen_public_key(&another_private_key);
+
+    // Valid empty query, but with a wrong public key :-)
+    let query = chatrouille::pack_unsigned_query(&[], &another_public_key).unwrap();
+
+    let request = Request::builder()
+      .body(Body::from(query.0))
+      .unwrap();
+
+    let response = block_on(chatrouille(request, Arc::new(private_key))).unwrap();
+    assert_eq!(response.status(), StatusCode::UNPROCESSABLE_ENTITY);
+    assert!(body_contains(response, "Unable to decrypt"));
+  }
+}

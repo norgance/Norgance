@@ -155,12 +155,12 @@ fn pack_query(
   };
 
   let public_key_bytes = client_public_key.as_bytes().to_vec();
-  assert_eq!(
+  /*assert_eq!(
     public_key_bytes.len(),
     CLIENT_PUBLIC_KEY_LENGTH,
     "The public key length should be {} bytes",
     CLIENT_PUBLIC_KEY_LENGTH
-  );
+  );*/
 
   let mode = match client_keypair {
     Some(_) => Mode::SignedQuery,
@@ -397,8 +397,6 @@ mod tests {
     ])
     .expect("Unwrap keypair");
 
-    let pubkey = keypair.public.to_bytes();
-
     let (canard, _canard_secret) =
       pack_signed_query(b"Bonjour le monde.", &bob_public_key, &keypair)
         .expect("pack signed query");
@@ -482,5 +480,44 @@ mod tests {
     let server_private_key = key_utils::gen_private_key();
     let server_public_key = key_utils::gen_public_key(&server_private_key);
 
+    // Empty data should work
+    pack_unsigned_query(&[], &server_public_key).unwrap();
+
+    // Unpacking empty data should not work
+    assert!(unpack_query(&[], &server_private_key).is_err());
+
+    // Building a valid query to modify it later
+    let (query, shared_secret) = pack_unsigned_query(b"hei", &server_public_key).unwrap();
+    assert!(unpack_query(&query, &server_private_key).is_ok());
+
+    let mut query_with_wrong_version = query.clone();
+    query_with_wrong_version[0] = 128;
+    assert!(unpack_query(&query_with_wrong_version, &server_private_key).is_err());
+
+    let mut query_with_wrong_mode = query.clone();
+    query_with_wrong_mode[PACKET_VERSION_LENGTH] = 128;
+    assert!(unpack_query(&query_with_wrong_mode, &server_private_key).is_err());
+
+    // Query that is not supposed to be signed
+    query_with_wrong_mode[PACKET_VERSION_LENGTH] = Mode::SignedQuery as u8;
+    assert!(unpack_query(&query_with_wrong_mode, &server_private_key).is_err());
+
+    // Wrong aead data - invalid tag
+    let mut query_with_weird_aead_data = query.clone();
+    query_with_weird_aead_data[query.len()-1] = 128;
+    assert!(unpack_query(&query_with_weird_aead_data, &server_private_key).is_err());
+
+    assert!(unpack_response(&[], &shared_secret).is_err());
+    
+    // Building a valid response to modify it later
+    let response = pack_response(b"hei hei", &shared_secret).unwrap();
+
+    let mut response_with_wrong_version = response.clone();
+    response_with_wrong_version[0] = 128;
+    assert!(unpack_response(&response_with_wrong_version, &shared_secret).is_err());
+
+    let mut response_with_wrong_mode = response.clone();
+    response_with_wrong_mode[PACKET_VERSION_LENGTH] = 128;
+    assert!(unpack_response(&response_with_wrong_mode, &shared_secret).is_err());
   }
 }
