@@ -373,7 +373,7 @@ impl VerifyUnpackedQuerySignature for UnpackedQuerySignature {
   }
 }
 
-#[allow(clippy::panic, clippy::result_expect_used, clippy::option_expect_used)]
+#[allow(clippy::panic, clippy::expect_used, clippy::unwrap_used)]
 #[cfg(test)]
 mod tests {
   use super::*;
@@ -516,7 +516,7 @@ mod tests {
     response_with_wrong_version[0] = 128;
     assert!(unpack_response(&response_with_wrong_version, &shared_secret).is_err());
 
-    let mut response_with_wrong_mode = response.clone();
+    let mut response_with_wrong_mode = response;//.clone();
     response_with_wrong_mode[PACKET_VERSION_LENGTH] = 128;
     assert!(unpack_response(&response_with_wrong_mode, &shared_secret).is_err());
   }

@@ -1,9 +1,9 @@
 #![warn(
     clippy::all,
-    clippy::restriction,
+    //clippy::restriction,
     clippy::pedantic,
     clippy::needless_pass_by_value,
-    clippy::result_unwrap_used,
+    clippy::unwrap_used,
     clippy::clone_on_ref_ptr
 )]
 #![allow(
@@ -16,7 +16,8 @@
     clippy::wildcard_imports,
     clippy::else_if_without_else,
     clippy::clone_on_ref_ptr,
-    clippy::single_match_else
+    clippy::single_match_else,
+    clippy::match_wild_err_arm
 )]
 
 mod chatrouille;
@@ -41,9 +42,8 @@ embed_migrations!("./migrations");
 #[tokio::main]
 #[allow(
     clippy::print_stdout,
-    clippy::result_expect_used,
-    clippy::option_expect_used,
-    clippy::result_unwrap_used
+    clippy::expect_used,
+    clippy::unwrap_used
 )]
 async fn main() {
     let db_pool = db::create_connection_pool().expect("Unable to create connection pool");
@@ -91,14 +91,14 @@ async fn main() {
             "keypair: {:?}",
             prout,
         );
-
+*/
         let pubkey = keypair.public.to_bytes();
         println!(
             "pubkey: {}\npubkey debug: {:?}",
-            base64::encode_config(pubkey.clone(), base64::STANDARD_NO_PAD),
+            base64::encode_config(pubkey, base64::STANDARD_NO_PAD),
             pubkey,
         );
-    }*/
+    /*}*/
 
     let (canard, _canard_secret) =
         //chatrouille::pack_unsigned_query(b"Bonjour le monde.", &bob_public_key).unwrap();

@@ -48,7 +48,7 @@ pub fn derive_shared_secret_to_sym_key(
     Ok(symmetric_key)
 }
 
-#[allow(clippy::panic)]
+#[allow(clippy::panic,clippy::unwrap_used)]
 #[cfg(test)]
 mod tests {
     use super::*;

@@ -16,7 +16,7 @@ pub enum NorganceChatrouilleError {
   TooBig,
 }
 
-#[allow(clippy::result_expect_used)]
+#[allow(clippy::expect_used)]
 pub fn json_response(json: &serde_json::value::Value, status: StatusCode) -> Response<Body> {
   Response::builder()
     .status(status)
@@ -90,7 +90,7 @@ pub fn health(arc_db_pool: Arc<db::DbPool>) -> ResultHandler {
   Ok(json_ok(&json!({ "available": ok })))
 }
 
-#[allow(clippy::result_expect_used)]
+#[allow(clippy::expect_used)]
 pub fn not_found() -> ResultHandler {
   Ok(
     Response::builder()
@@ -177,6 +177,7 @@ pub fn chatrouille_public_key() -> ResultHandler {
   })))
 }
 
+#[allow(clippy::panic, clippy::expect_used, clippy::unwrap_used)]
 #[cfg(test)]
 mod tests {
   use super::*;
@@ -216,11 +217,12 @@ mod tests {
 
   #[test]
   fn test_chatrouille_random() {
+    use rand::prelude::*;
+
     let private_key = key_utils::gen_private_key();
 
     // Random data
-    use rand::prelude::*;
-    let mut random_data = [0u8; 256];
+    let mut random_data = [0_u8; 256];
     rand::thread_rng().fill_bytes(&mut random_data);
     // Make sure the prefix is always invalid
     random_data[0] = 0;

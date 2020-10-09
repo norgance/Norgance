@@ -1,4 +1,4 @@
-#![allow(clippy::result_expect_used)]
+#![allow(clippy::expect_used)]
 extern crate regex;
 
 use regex::Regex;

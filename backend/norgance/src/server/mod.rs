@@ -10,7 +10,7 @@ use hyper::{Method, Server};
 
 use crate::db;
 
-#[allow(clippy::result_expect_used)]
+#[allow(clippy::expect_used)]
 async fn shutdown_signal() {
     tokio::signal::ctrl_c()
         .await
