@@ -124,7 +124,6 @@ pub trait VerifyUnpackedQuerySignature {
   fn verify(&self, public_key: &ed25519_dalek::PublicKey) -> Result<()>;
 }
 
-#[allow(dead_code)] // TODO
 pub fn pack_signed_query(
   data: &[u8],
   server_public_key: &x448::PublicKey,

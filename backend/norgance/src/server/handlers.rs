@@ -16,6 +16,19 @@ pub enum NorganceChatrouilleError {
   TooBig,
 }
 
+#[derive(Debug, serde::Deserialize, PartialEq)]
+#[serde(bound = "juniper::InputValue<S>: serde::Deserialize<'de>")] // ??
+pub struct NorganceChatrouilleContainer<S = juniper::DefaultScalarValue>
+where
+  S: juniper::ScalarValue,
+{
+  graphql: juniper::http::GraphQLBatchRequest<S>,
+
+  #[serde(rename = "citizenIdentifier")]
+  //#[serde(bound(deserialize = "juniper::InputValue<S>: serde::Deserialize<'de> + serde::Serialize"))]
+  citizen_identifier: Option<String>,
+}
+
 #[allow(clippy::expect_used)]
 pub fn json_response(json: &serde_json::value::Value, status: StatusCode) -> Response<Body> {
   Response::builder()
@@ -147,14 +160,23 @@ pub async fn chatrouille(
     Err(x) => return Ok(json_error(x, StatusCode::UNPROCESSABLE_ENTITY)),
   };
 
-  let graphql_request: juniper::http::GraphQLBatchRequest =
+  let graphql_request: NorganceChatrouilleContainer =
     match serde_json::from_slice(&unpacked_query.payload) {
       Ok(batch) => batch,
       Err(x) => {
         return Ok(json_error(x, StatusCode::BAD_REQUEST));
       }
     };
-  let citizen_identifier = Some(String::from("canard"));
+  let citizen_identifier = graphql_request.citizen_identifier; //Some(String::from("canard"));
+
+  if citizen_identifier.is_some() && unpacked_query.signature.is_none() {
+    return Ok(json_response(
+      &json!({
+        "error": "citizenIdentifier requires a signed query"
+      }),
+      StatusCode::FORBIDDEN,
+    ));
+  }
 
   let signature_public_key = ed25519_dalek::PublicKey::from_bytes(&[
     176, 102, 32, 203, 59, 181, 83, 5, 128, 168, 162, 97, 165, 225, 237, 64, 2, 175, 178, 90, 221,
@@ -177,6 +199,7 @@ pub async fn chatrouille(
     citizen_identifier,
   };
   let graphql_response = graphql_request
+    .graphql
     .execute(&*root_node, &context_for_query)
     .await;
 
@@ -327,7 +350,7 @@ mod tests {
     let request = Request::builder().body(Body::from(query.0)).unwrap();
     let response = block_on(chatrouille(request, private_key, root_node, db_pool)).unwrap();
     assert_eq!(response.status(), StatusCode::BAD_REQUEST);
-    assert!(body_contains(response, "data did not match"));
+    assert!(body_contains(response, "missing field"));
   }
 
   #[test]
@@ -336,25 +359,98 @@ mod tests {
 
     let (query, shared_secret) = chatrouille::pack_unsigned_query(
       &serde_json::to_vec(&json!({
-        "operationName": "loadCitizenPublicKey",
-        "variables": {
-          "identifier": "abcdef"
-        },
-        "query": "query loadCitizenPublicKey($identifier: String!) { loadCitizenPublicKeys(identifier: $identifier) {   publicX448 publicX25519Dalek publicEd25519Dalek }}"
+        "graphql": {
+          "operationName": "loadCitizenPublicKey",
+          "variables": {
+            "identifier": "abcdef"
+          },
+          "query": "query loadCitizenPublicKey($identifier: String!) { loadCitizenPublicKeys(identifier: $identifier) { publicX448 publicX25519Dalek publicEd25519Dalek }}"
+        }
       }))
       .unwrap(),
       &public_key,
     )
     .unwrap();
     let request = Request::builder().body(Body::from(query)).unwrap();
-    let encrypted_response = block_on(chatrouille(request, private_key, root_node, db_pool)).unwrap();
+    let encrypted_response =
+      block_on(chatrouille(request, private_key, root_node, db_pool)).unwrap();
     assert_eq!(encrypted_response.status(), StatusCode::OK);
     let encrypted_body = read_response_body(encrypted_response);
     let response = chatrouille::unpack_response(&encrypted_body, &shared_secret).unwrap();
 
     //let response_text = std::str::from_utf8(&response).unwrap();
-    assert_eq!(response, serde_json::to_vec(&json!({
-      "data": { "loadCitizenPublicKeys" : null }
-    })).unwrap());
+    assert_eq!(
+      response,
+      serde_json::to_vec(&json!({
+        "data": { "loadCitizenPublicKeys" : null }
+      }))
+      .unwrap()
+    );
+  }
+  #[test]
+  fn test_chatrouille_unvalid_unsigned() {
+    let (private_key, public_key, root_node, db_pool) = setup_chatrouille();
+
+    let (query, _) = chatrouille::pack_unsigned_query(
+      &serde_json::to_vec(&json!({
+        "graphql": {
+          "operationName": "loadCitizenPublicKey",
+          "variables": {
+            "identifier": "abcdef"
+          },
+          "query": "query loadCitizenPublicKey($identifier: String!) { loadCitizenPublicKeys(identifier: $identifier) { publicX448 publicX25519Dalek publicEd25519Dalek }}"
+        },
+        "citizenIdentifier": "canard"
+      }))
+      .unwrap(),
+      &public_key,
+    )
+    .unwrap();
+
+    let request = Request::builder().body(Body::from(query)).unwrap();
+    let response = block_on(chatrouille(request, private_key, root_node, db_pool)).unwrap();
+    assert_eq!(response.status(), StatusCode::FORBIDDEN);
+    assert!(body_contains(response, "signed"));
+  }
+  #[test]
+  fn test_chatrouille_valid_signed() {
+    let (private_key, public_key, root_node, db_pool) = setup_chatrouille();
+    let keypair = key_utils::gen_ed25519_keypair();
+
+    let (query, shared_secret) = chatrouille::pack_signed_query(
+      &serde_json::to_vec(&json!({
+        "graphql": {
+          "operationName": "loadCitizenPublicKey",
+          "variables": {
+            "identifier": "canard"
+          },
+          "query": "query loadCitizenPublicKey($identifier: String!) { loadCitizenPublicKeys(identifier: $identifier) { publicX448 publicX25519Dalek publicEd25519Dalek }}"
+        },
+        "citizenIdentifier": "canard"
+      }))
+      .unwrap(),
+      &public_key,
+      &keypair,
+    )
+    .unwrap();
+    let request = Request::builder().body(Body::from(query)).unwrap();
+    let encrypted_response =
+      block_on(chatrouille(request, private_key, root_node, db_pool)).unwrap();
+    assert_eq!(encrypted_response.status(), StatusCode::OK);
+    let encrypted_body = read_response_body(encrypted_response);
+    let response = chatrouille::unpack_response(&encrypted_body, &shared_secret).unwrap();
+
+    //let response_text = std::str::from_utf8(&response).unwrap();
+    assert_eq!(
+      response,
+      serde_json::to_vec(&json!({
+        "data": {
+          "loadCitizenPublicKeys" : {
+            "ed25519_dalek": "abc"
+          }
+        }
+      }))
+      .unwrap()
+    );
   }
 }

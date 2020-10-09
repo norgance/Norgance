@@ -20,6 +20,12 @@ pub fn public_key_to_base64(public_key: &x448::PublicKey) -> String {
 }
 
 #[allow(dead_code)]
+pub fn gen_ed25519_keypair() -> ed25519_dalek::Keypair {
+    let mut rng = rand::thread_rng();
+    ed25519_dalek::Keypair::generate(&mut rng)
+}
+
+#[allow(dead_code)]
 pub fn private_key_from_base64(private_key_base64: &str) -> Option<x448::Secret> {
     let bytes = match base64::decode(private_key_base64) {
         Ok(bytes) => bytes,
@@ -48,7 +54,7 @@ pub fn derive_shared_secret_to_sym_key(
     Ok(symmetric_key)
 }
 
-#[allow(clippy::panic,clippy::unwrap_used)]
+#[allow(clippy::panic, clippy::unwrap_used)]
 #[cfg(test)]
 mod tests {
     use super::*;
