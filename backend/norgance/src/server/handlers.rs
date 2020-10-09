@@ -43,6 +43,28 @@ where
   )
 }
 
+async fn read_request_body(
+  req: Request<Body>,
+  limit: usize,
+) -> Result<(Vec<u8>, bool), hyper::Error> {
+  use futures::TryStreamExt;
+
+  let body = req.into_body();
+  body
+    .try_fold(
+      (Vec::new(), false),
+      |(mut data, too_long), chunk| async move {
+        if too_long || data.len() + chunk.len() > limit {
+          Ok((data, true))
+        } else {
+          data.extend_from_slice(&chunk);
+          Ok((data, false))
+        }
+      },
+    )
+    .await
+}
+
 type ResultHandler = Result<Response<Body>, hyper::Error>;
 
 pub async fn graphql(
@@ -100,27 +122,14 @@ pub fn not_found() -> ResultHandler {
   )
 }
 
-pub async fn chatrouille(req: Request<Body>, private_key: Arc<x448::Secret>) -> ResultHandler {
-  use futures::TryStreamExt;
-
-  let body = req.into_body();
-  let (entire_body, body_too_long) = match body
-    .try_fold(
-      (Vec::new(), false),
-      |(mut data, too_long), chunk| async move {
-        if too_long || data.len() + chunk.len() > 4200 {
-          Ok((data, true))
-        } else {
-          data.extend_from_slice(&chunk);
-          Ok((data, false))
-        }
-      },
-    )
-    .await
-  {
-    Ok(body) => body,
-    Err(x) => return Err(x),
-  };
+pub async fn chatrouille(
+  req: Request<Body>,
+  private_key: Arc<x448::Secret>,
+  root_node: Arc<graphql::Schema>,
+  arc_db_pool: Arc<db::DbPool>,
+) -> ResultHandler {
+  use chatrouille::VerifyUnpackedQuerySignature;
+  let (body, body_too_long) = read_request_body(req, 4200).await?;
 
   if body_too_long {
     return Ok(json_response(
@@ -131,15 +140,21 @@ pub async fn chatrouille(req: Request<Body>, private_key: Arc<x448::Secret>) -> 
     ));
   }
 
-  let lol = entire_body; //base64::decode(entire_body).expect("prout");
+  let payload = chatrouille::unpack_query(&body, &private_key);
 
-  /*let private_key = x448::Secret::from_bytes(&[
-    0x1c, 0x30, 0x6a, 0x7a, 0xc2, 0xa0, 0xe2, 0xe0, 0x99, 0xb, 0x29, 0x44, 0x70, 0xcb, 0xa3, 0x39,
-    0xe6, 0x45, 0x37, 0x72, 0xb0, 0x75, 0x81, 0x1d, 0x8f, 0xad, 0xd, 0x1d, 0x69, 0x27, 0xc1, 0x20,
-    0xbb, 0x5e, 0xe8, 0x97, 0x2b, 0xd, 0x3e, 0x21, 0x37, 0x4c, 0x9c, 0x92, 0x1b, 0x9, 0xd1, 0xb0,
-    0x36, 0x6f, 0x10, 0xb6, 0x51, 0x73, 0x99, 0x2d,
-  ])
-  .unwrap();*/
+  let unpacked_query = match payload {
+    Ok(unpacked_query) => unpacked_query,
+    Err(x) => return Ok(json_error(x, StatusCode::UNPROCESSABLE_ENTITY)),
+  };
+
+  let graphql_request: juniper::http::GraphQLBatchRequest =
+    match serde_json::from_slice(&unpacked_query.payload) {
+      Ok(batch) => batch,
+      Err(x) => {
+        return Ok(json_error(x, StatusCode::BAD_REQUEST));
+      }
+    };
+  let citizen_identifier = Some(String::from("canard"));
 
   let signature_public_key = ed25519_dalek::PublicKey::from_bytes(&[
     176, 102, 32, 203, 59, 181, 83, 5, 128, 168, 162, 97, 165, 225, 237, 64, 2, 175, 178, 90, 221,
@@ -147,27 +162,55 @@ pub async fn chatrouille(req: Request<Body>, private_key: Arc<x448::Secret>) -> 
   ])
   .expect("prout");
 
-  let payload = chatrouille::unpack_query(&lol, &private_key);
+  let signed = match unpacked_query.signature {
+    Some(signature) => match signature.verify(&signature_public_key) {
+      Ok(()) => true,
+      Err(x) => {
+        return Ok(json_error(x, StatusCode::FORBIDDEN));
+      }
+    },
+    None => false,
+  };
 
-  match payload {
-    Ok(unpacked_query) => {
-      use chatrouille::VerifyUnpackedQuerySignature;
-      let signed = match unpacked_query.signature {
-        Some(signature) => match signature.verify(&signature_public_key) {
-          Ok(()) => true,
-          Err(x) => {
-            return Ok(json_error(x, StatusCode::FORBIDDEN));
-          }
-        },
-        None => false,
-      };
-      Ok(json_ok(&json!({
-        "lol": std::str::from_utf8(&unpacked_query.payload).unwrap_or("prout"),
-        "signed": signed
-      })))
-    }
-    Err(x) => Ok(json_error(x, StatusCode::UNPROCESSABLE_ENTITY)),
+  let context_for_query = graphql::Ctx {
+    db_pool: arc_db_pool.clone(),
+    citizen_identifier,
+  };
+  let graphql_response = graphql_request
+    .execute(&*root_node, &context_for_query)
+    .await;
+
+  if !graphql_response.is_ok() {
+    return Ok(json_response(
+      &json!({
+        "error": "bad request"
+      }),
+      StatusCode::BAD_REQUEST,
+    ));
   }
+
+  let response_payload = match serde_json::to_vec(&graphql_response) {
+    Ok(response_payload) => response_payload,
+    Err(x) => {
+      return Ok(json_error(x, StatusCode::INTERNAL_SERVER_ERROR));
+    }
+  };
+
+  let encrypted_response =
+    match chatrouille::pack_response(&response_payload, &unpacked_query.shared_secret) {
+      Ok(encrypted_response) => encrypted_response,
+      Err(x) => {
+        return Ok(json_error(x, StatusCode::INTERNAL_SERVER_ERROR));
+      }
+    };
+
+  Ok(
+    Response::builder()
+      .status(StatusCode::OK)
+      .header(hyper::header::CONTENT_TYPE, "application/octet-stream")
+      .body(Body::from(encrypted_response))
+      .expect("Unable to build response"),
+  )
 }
 
 pub fn chatrouille_public_key() -> ResultHandler {
@@ -184,7 +227,7 @@ mod tests {
   use chatrouille::key_utils;
   use tokio_test::block_on;
 
-  fn read_body(response: Response<Body>) -> Vec<u8> {
+  fn read_response_body(response: Response<Body>) -> Vec<u8> {
     use futures::TryStreamExt;
     block_on(
       response
@@ -198,19 +241,37 @@ mod tests {
   }
 
   fn body_contains(response: Response<Body>, text: &str) -> bool {
-    let body = read_body(response);
+    let body = read_response_body(response);
     let body_text = std::str::from_utf8(&body).unwrap();
     body_text.contains(text)
   }
 
+  fn setup_chatrouille() -> (
+    Arc<x448::Secret>,
+    x448::PublicKey,
+    Arc<graphql::Schema>,
+    Arc<db::DbPool>,
+  ) {
+    let private_key = key_utils::gen_private_key();
+    let public_key = key_utils::gen_public_key(&private_key);
+    let root_node = graphql::new_root_node();
+    let db_pool = db::create_connection_pool().expect("Unable to create connection pool");
+
+    (
+      Arc::new(private_key),
+      public_key,
+      root_node,
+      Arc::new(db_pool),
+    )
+  }
+
   #[test]
   fn test_chatrouille_empty() {
-    let private_key = key_utils::gen_private_key();
-    // let public_key = key_utils::gen_public_key(&private_key);
+    let (private_key, _, root_node, db_pool) = setup_chatrouille();
 
     // Empty
     let request = Request::builder().body(Body::empty()).unwrap();
-    let response = block_on(chatrouille(request, Arc::new(private_key))).unwrap();
+    let response = block_on(chatrouille(request, private_key, root_node, db_pool)).unwrap();
     assert_eq!(response.status(), StatusCode::UNPROCESSABLE_ENTITY);
     assert!(body_contains(response, "too small"));
   }
@@ -219,7 +280,7 @@ mod tests {
   fn test_chatrouille_random() {
     use rand::prelude::*;
 
-    let private_key = key_utils::gen_private_key();
+    let (private_key, _, root_node, db_pool) = setup_chatrouille();
 
     // Random data
     let mut random_data = [0_u8; 256];
@@ -230,26 +291,70 @@ mod tests {
     let request = Request::builder()
       .body(Body::from(random_data.to_vec()))
       .unwrap();
-    let response = block_on(chatrouille(request, Arc::new(private_key))).unwrap();
+    let response = block_on(chatrouille(request, private_key, root_node, db_pool)).unwrap();
     assert_eq!(response.status(), StatusCode::UNPROCESSABLE_ENTITY);
     assert!(body_contains(response, "prefix is invalid"));
   }
 
   #[test]
   fn test_chatrouille_wrong_public_key() {
-    let private_key = key_utils::gen_private_key();
+    let (private_key, _, root_node, db_pool) = setup_chatrouille();
     let another_private_key = key_utils::gen_private_key();
     let another_public_key = key_utils::gen_public_key(&another_private_key);
 
     // Valid empty query, but with a wrong public key :-)
     let query = chatrouille::pack_unsigned_query(&[], &another_public_key).unwrap();
 
-    let request = Request::builder()
-      .body(Body::from(query.0))
-      .unwrap();
+    let request = Request::builder().body(Body::from(query.0)).unwrap();
 
-    let response = block_on(chatrouille(request, Arc::new(private_key))).unwrap();
+    let response = block_on(chatrouille(request, private_key, root_node, db_pool)).unwrap();
     assert_eq!(response.status(), StatusCode::UNPROCESSABLE_ENTITY);
     assert!(body_contains(response, "Unable to decrypt"));
+  }
+
+  #[test]
+  fn test_chatrouille_wrong_graphql() {
+    let (private_key, public_key, root_node, db_pool) = setup_chatrouille();
+
+    let query = chatrouille::pack_unsigned_query(
+      &serde_json::to_vec(&json!({
+        "not graphql": true
+      }))
+      .unwrap(),
+      &public_key,
+    )
+    .unwrap();
+    let request = Request::builder().body(Body::from(query.0)).unwrap();
+    let response = block_on(chatrouille(request, private_key, root_node, db_pool)).unwrap();
+    assert_eq!(response.status(), StatusCode::BAD_REQUEST);
+    assert!(body_contains(response, "data did not match"));
+  }
+
+  #[test]
+  fn test_chatrouille_valid_unsigned() {
+    let (private_key, public_key, root_node, db_pool) = setup_chatrouille();
+
+    let (query, shared_secret) = chatrouille::pack_unsigned_query(
+      &serde_json::to_vec(&json!({
+        "operationName": "loadCitizenPublicKey",
+        "variables": {
+          "identifier": "abcdef"
+        },
+        "query": "query loadCitizenPublicKey($identifier: String!) { loadCitizenPublicKeys(identifier: $identifier) {   publicX448 publicX25519Dalek publicEd25519Dalek }}"
+      }))
+      .unwrap(),
+      &public_key,
+    )
+    .unwrap();
+    let request = Request::builder().body(Body::from(query)).unwrap();
+    let encrypted_response = block_on(chatrouille(request, private_key, root_node, db_pool)).unwrap();
+    assert_eq!(encrypted_response.status(), StatusCode::OK);
+    let encrypted_body = read_response_body(encrypted_response);
+    let response = chatrouille::unpack_response(&encrypted_body, &shared_secret).unwrap();
+
+    //let response_text = std::str::from_utf8(&response).unwrap();
+    assert_eq!(response, serde_json::to_vec(&json!({
+      "data": { "loadCitizenPublicKeys" : null }
+    })).unwrap());
   }
 }

@@ -47,7 +47,7 @@ pub async fn server_main(
                                 .await
                         }
                         (&Method::POST, "/chatrouille") => {
-                            handlers::chatrouille(req, server_private_key).await
+                            handlers::chatrouille(req, server_private_key, root_node, arc_db_pool).await
                         }
                         (&Method::GET, "/chatrouille_public_key") => {
                             handlers::chatrouille_public_key()
