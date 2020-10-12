@@ -26,6 +26,12 @@ pub fn gen_ed25519_keypair() -> ed25519_dalek::Keypair {
 }
 
 #[allow(dead_code)]
+pub fn gen_x25519_static_secret() -> x25519_dalek::StaticSecret {
+    let mut rng = rand::thread_rng();
+    x25519_dalek::StaticSecret::new(&mut rng)
+}
+
+#[allow(dead_code)]
 pub fn private_key_from_base64(private_key_base64: &str) -> Option<x448::Secret> {
     let bytes = match base64::decode(private_key_base64) {
         Ok(bytes) => bytes,

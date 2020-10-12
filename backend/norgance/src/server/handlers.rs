@@ -135,6 +135,7 @@ pub fn not_found() -> ResultHandler {
   )
 }
 
+#[allow(clippy::too_many_lines)]
 pub async fn chatrouille(
   req: Request<Body>,
   private_key: Arc<x448::Secret>,
@@ -167,32 +168,63 @@ pub async fn chatrouille(
         return Ok(json_error(x, StatusCode::BAD_REQUEST));
       }
     };
-  let citizen_identifier = graphql_request.citizen_identifier; //Some(String::from("canard"));
+  let citizen_identifier = graphql_request.citizen_identifier;
 
-  if citizen_identifier.is_some() && unpacked_query.signature.is_none() {
-    return Ok(json_response(
-      &json!({
-        "error": "citizenIdentifier requires a signed query"
-      }),
-      StatusCode::FORBIDDEN,
-    ));
-  }
-
-  let signature_public_key = ed25519_dalek::PublicKey::from_bytes(&[
-    176, 102, 32, 203, 59, 181, 83, 5, 128, 168, 162, 97, 165, 225, 237, 64, 2, 175, 178, 90, 221,
-    38, 99, 22, 17, 8, 27, 69, 13, 19, 6, 121,
-  ])
-  .expect("prout");
-
-  let signed = match unpacked_query.signature {
-    Some(signature) => match signature.verify(&signature_public_key) {
-      Ok(()) => true,
-      Err(x) => {
-        return Ok(json_error(x, StatusCode::FORBIDDEN));
+  if citizen_identifier.is_some() {
+    let signature = match unpacked_query.signature {
+      None => {
+        return Ok(json_response(
+          &json!({
+            "error": "citizenIdentifier requires a signed query"
+          }),
+          StatusCode::FORBIDDEN,
+        ));
       }
-    },
-    None => false,
-  };
+      Some(signature) => signature,
+    };
+
+    let db_connection = match arc_db_pool.get() {
+      Ok(db_connection) => db_connection,
+      Err(_) => {
+        return Ok(json_response(
+          &json!({
+            "error": "Unable to query the database"
+          }),
+          StatusCode::INTERNAL_SERVER_ERROR,
+        ));
+      }
+    };
+
+    #[allow(clippy::unwrap_used)]
+    let public_key = match db::load_citizen_public_ed25519_dalek(
+      &db_connection,
+      &citizen_identifier.clone().unwrap(),
+    ) {
+      Ok(public_key) => match public_key {
+        Some(public_key) => public_key,
+        None => {
+          return Ok(json_response(
+            &json!({
+              "error": "Unauthorized citizen identifier"
+            }),
+            StatusCode::FORBIDDEN,
+          ));
+        }
+      },
+      Err(x) => {
+        return Ok(json_error(x, StatusCode::INTERNAL_SERVER_ERROR));
+      }
+    };
+
+    if signature.verify(&public_key).is_err() {
+      return Ok(json_response(
+        &json!({
+          "error": "Unauthorized citizen identifier"
+        }),
+        StatusCode::FORBIDDEN,
+      ));
+    };
+  }
 
   let context_for_query = graphql::Ctx {
     db_pool: arc_db_pool.clone(),
@@ -286,6 +318,58 @@ mod tests {
       root_node,
       Arc::new(db_pool),
     )
+  }
+
+  fn random_string(size: usize) -> String {
+    use rand::distributions::Alphanumeric;
+    use rand::{thread_rng, Rng};
+    use std::iter;
+    let mut rng = thread_rng();
+    iter::repeat(())
+      .map(|()| rng.sample(Alphanumeric))
+      .take(size)
+      .collect()
+  }
+
+  fn create_test_citizen_in_db(db: &db::DbPooledConnection) -> (String, ed25519_dalek::Keypair) {
+    use crate::db::models::{Citizen, NewCitizen};
+
+    let identifier = random_string(64);
+    let access_key = random_string(64);
+    let keypair_ed25519 = key_utils::gen_ed25519_keypair();
+    let private_x25519 = key_utils::gen_x25519_static_secret();
+    let public_x25519 = x25519_dalek::PublicKey::from(&private_x25519);
+    let private_x448 = key_utils::gen_private_key();
+    let public_x448 = key_utils::gen_public_key(&private_x448);
+
+    let private_secret_key = orion::aead::SecretKey::generate(32).unwrap();
+    let aead_data = orion::aead::seal(&private_secret_key, b"secret").unwrap();
+
+    let new_citizen = NewCitizen {
+      identifier: &identifier,
+      access_key: &access_key,
+      public_x448: &base64::encode_config(public_x448.as_bytes(), base64::STANDARD_NO_PAD),
+      public_x25519_dalek: &base64::encode_config(
+        public_x25519.as_bytes(),
+        base64::STANDARD_NO_PAD,
+      ),
+      public_ed25519_dalek: &base64::encode_config(
+        keypair_ed25519.public.as_bytes(),
+        base64::STANDARD_NO_PAD,
+      ),
+      aead_data: &base64::encode_config(aead_data, base64::STANDARD_NO_PAD),
+    };
+
+    {
+      use crate::db::schema::citizens;
+      use diesel::prelude::*;
+      let _citizen: Citizen = diesel::insert_into(citizens::table)
+        .values(&new_citizen)
+        .get_result(db)
+        .unwrap();
+    }
+
+    (identifier, keypair_ed25519)
   }
 
   #[test]
@@ -415,18 +499,20 @@ mod tests {
   #[test]
   fn test_chatrouille_valid_signed() {
     let (private_key, public_key, root_node, db_pool) = setup_chatrouille();
-    let keypair = key_utils::gen_ed25519_keypair();
+
+    let db = db_pool.get().expect("Database connection failed");
+    let (identifier, keypair) = create_test_citizen_in_db(&db);
 
     let (query, shared_secret) = chatrouille::pack_signed_query(
       &serde_json::to_vec(&json!({
         "graphql": {
           "operationName": "loadCitizenPublicKey",
           "variables": {
-            "identifier": "canard"
+            "identifier": identifier
           },
-          "query": "query loadCitizenPublicKey($identifier: String!) { loadCitizenPublicKeys(identifier: $identifier) { publicX448 publicX25519Dalek publicEd25519Dalek }}"
+          "query": "query loadCitizenPublicKey($identifier: String!) { loadCitizenPublicKeys(identifier: $identifier) { publicEd25519Dalek }}"
         },
-        "citizenIdentifier": "canard"
+        "citizenIdentifier": identifier
       }))
       .unwrap(),
       &public_key,
@@ -440,13 +526,18 @@ mod tests {
     let encrypted_body = read_response_body(encrypted_response);
     let response = chatrouille::unpack_response(&encrypted_body, &shared_secret).unwrap();
 
-    //let response_text = std::str::from_utf8(&response).unwrap();
+    let response_text = std::str::from_utf8(&response).unwrap();
+    let ed25519_dalek_base64 = &base64::encode_config(
+      keypair.public.as_bytes(),
+      base64::STANDARD_NO_PAD,
+    );
+
     assert_eq!(
-      response,
-      serde_json::to_vec(&json!({
+     response_text,
+      serde_json::to_string(&json!({
         "data": {
           "loadCitizenPublicKeys" : {
-            "ed25519_dalek": "abc"
+            "publicEd25519Dalek": ed25519_dalek_base64
           }
         }
       }))

@@ -4,8 +4,8 @@ use diesel::PgConnection;
 //use snafu::{ensure, Backtrace, ErrorCompat, ResultExt, Snafu};
 use snafu::{ResultExt, Snafu};
 
-pub mod schema;
 pub mod models;
+pub mod schema;
 
 #[derive(Debug, Snafu)]
 pub enum NorganceDatabaseError {
@@ -23,6 +23,14 @@ pub enum NorganceDatabaseError {
   },
   #[snafu(display("Error while querying the database database: {}", source))]
   QueryError { source: diesel::result::Error },
+
+  #[snafu(display("Error while decoding base64: {}", source))]
+  Base64Error { source: base64::DecodeError },
+
+  #[snafu(display("Error while loading public key: {}", source))]
+  Ed25519Error {
+    source: ed25519_dalek::SignatureError,
+  },
 }
 
 pub type Result<T, E = NorganceDatabaseError> = std::result::Result<T, E>;
@@ -76,8 +84,8 @@ pub fn load_citizen_personal_data(
   input_identifier: &str,
   input_access_key: &str,
 ) -> Result<Option<String>> {
-  use schema::citizens::dsl::*;
   use diesel::prelude::*;
+  use schema::citizens::dsl::*;
 
   let query = citizens
     .filter(
@@ -99,8 +107,8 @@ pub fn load_citizen_public_keys(
   db: &DbPooledConnection,
   input_identifier: &str,
 ) -> Result<Option<models::CitizenPublicKeys>> {
-  use schema::citizens::dsl::*;
   use diesel::prelude::*;
+  use schema::citizens::dsl::*;
 
   let result = citizens
     .filter(identifier.eq(input_identifier))
@@ -111,6 +119,31 @@ pub fn load_citizen_public_keys(
     .pop();
 
   Ok(result)
+}
+
+pub fn load_citizen_public_ed25519_dalek(
+  db: &DbPooledConnection,
+  input_identifier: &str,
+) -> Result<Option<ed25519_dalek::PublicKey>> {
+  use diesel::prelude::*;
+  use schema::citizens::dsl::*;
+
+  let result = citizens
+    .filter(identifier.eq(input_identifier))
+    .select(public_ed25519_dalek)
+    .limit(1)
+    .load::<String>(db)
+    .context(QueryError)?
+    .pop();
+
+  let result_bytes = match result {
+    Some(r) => base64::decode(r).context(Base64Error)?,
+    None => return Ok(None),
+  };
+
+  let public_key = ed25519_dalek::PublicKey::from_bytes(&result_bytes).context(Ed25519Error)?;
+
+  Ok(Some(public_key))
 }
 
 pub fn health_check(db: &DbPooledConnection) -> Result<()> {
