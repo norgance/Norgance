@@ -4,6 +4,7 @@ use std::sync::Arc;
 
 use crate::db;
 use crate::validation;
+use crate::server::check_password_quality;
 
 #[derive(Debug, Snafu)]
 pub enum NorganceError {
@@ -139,6 +140,13 @@ impl Query {
         };
 
         Ok(Some(result))
+    }
+
+    async fn checkPasswordQuality(
+        prefix: String
+    ) -> FieldResult<Vec<check_password_quality::PasswordQuality>> {
+        let res = check_password_quality::check_password_quality(prefix).await?;
+        Ok(res)
     }
 }
 

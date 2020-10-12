@@ -1,5 +1,6 @@
 mod graphql;
 mod handlers;
+mod check_password_quality;
 
 use std::borrow::Cow;
 use std::net::SocketAddr;
