@@ -2,6 +2,7 @@
   <div>
     <FormulateForm @submit="nextStep" :class="{loading}">
       <FormulateInput
+        class="identifier-input"
         name="identifier"
         :label="$t('identifier')"
         :help="$t('identifierHelp')"
@@ -15,6 +16,9 @@
       />
       <p v-if="specialCharacters" class="special-characters">
         {{ $t("specialCharacters") }}
+      </p>
+      <p v-if="confusingCharacters" class="confusing-characters">
+        {{ $t("confusingCharacters") }}
       </p>
       <p v-if="error" class="error">
         {{ $t("error") }}
@@ -53,6 +57,9 @@ export default {
       return /\s/.test(this.identifier)
         ? false
         : !/^[a-zA-Z0-9.\-_@]*$/.test(this.identifier);
+    },
+    confusingCharacters() {
+      return /(I.*l)|(l.*I)/.test(this.identifier);
     },
   },
   methods: {
@@ -96,6 +103,7 @@ export default {
 
 <style lang="scss" scoped>
 .special-characters,
+.confusing-characters,
 .error,
 .already-used {
   font-size: 0.9em;
@@ -103,6 +111,10 @@ export default {
 }
 /deep/ form.loading button[type="submit"] {
   animation-duration: 60s;
+}
+.identifier-input /deep/ input {
+  font-family: monospace;
+  line-height: 18px;
 }
 </style>
 
@@ -115,6 +127,10 @@ en:
     Your identifier contains special characters.
     Some people may have difficulties to write correctly
     your identifier.
+  confusingCharacters: |
+    Your identifier contains characters that are sometimes difficult to distinguish,
+    such as a lower case L and an uppercase i (I and l).
+    Try to use only uppercase or lowercase letters in your identifier.
   noSpaces: Your identifier must not contain spaces.
 fr:
   identifier: Quel identifiant de citoyen souhaitez-vous utiliser ?
@@ -131,6 +147,10 @@ fr:
     Votre identifant contient des caractères spéciaux.
     Certaines personnes peuvent avoir des difficultés
     pour saisir votre identifiant correctement.
+  confusingCharacters: |
+    Votre identifiant contient des caractères parfois difficiles à déterminer,
+    tel qu'un L minuscule et un i majuscule (I et l).
+    Essayer d'utiliser que des lettres minuscules et majuscules dans votre identifiant.
   noSpaces: Votre identifiant ne doit pas contenir d'espaces.
   back: Retour à vos informations de naissance.
   continue: Continuer
