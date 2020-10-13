@@ -14,12 +14,16 @@ crate-type = ["cdylib", "rlib"]
 default = ["console_error_panic_hook"]
 
 [dependencies]
-wasm-bindgen = "0.2.63"
-rust-argon2 = "0.8"
-uuid = "0.8.1"
-hex = " 0.4.2"
-sha1 = "0.6.0"
 blake2-rfc = "0.2.18"
+chatrouille = { version = "0.1.0", path = "../../chatrouille", features = ["wasm-bindgen"] }
+hex = " 0.4.2"
+rust-argon2 = "0.8"
+sha1 = "0.6.0"
+snafu = "0.6.9"
+uuid = "0.8.1"
+wasm-bindgen = "0.2.68"
+getrandom = { version = "0.2.0", features = ["js"] }
+
 
 # The `console_error_panic_hook` crate provides better debugging of panics by
 # logging them with `console.error`. This is great for development, but requires
@@ -35,8 +39,13 @@ console_error_panic_hook = { version = "0.1.6", optional = true }
 wee_alloc = { version = "0.4.5", optional = true }
 
 [dev-dependencies]
-wasm-bindgen-test = "0.3.13"
+wasm-bindgen-test = "0.3.18"
 
 [profile.release]
 # Tell `rustc` to optimize for small code size.
 opt-level = "s"
+
+# Wasm-opt crashes in recent version
+# https://github.com/rustwasm/wasm-pack/issues/886
+[package.metadata.wasm-pack.profile.release]
+wasm-opt = ["-Os", "--enable-mutable-globals"]
