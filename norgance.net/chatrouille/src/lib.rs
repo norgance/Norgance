@@ -219,7 +219,7 @@ fn pack(
 
     // We sign on the hash because we can.
     // It allows us to keep only the hash and not the full data
-    // when we want to verify the signature letter.
+    // when we want to verify the signature later.
     // The whole thing is also a Rube Goldberg machine.
     let packet_hash = blake2b(
       SIGNATURE_BLAKE2B_HASH_SIZE,
@@ -368,15 +368,9 @@ pub fn unpack_response(packed_data: &[u8], shared_secret: &x448::SharedSecret) -
 
   let aead_bytes = &packed_data[PACKET_VERSION_LENGTH + MODE_LENGTH..data_length];
 
-  let raw_data = unpack(aead_bytes, &symmetric_key)?;
-
-  Ok(raw_data)
-}
-
-fn unpack(encrypted_data: &[u8], symmetric_key: &orion::aead::SecretKey) -> Result<Vec<u8>> {
-  let decrypted = orion::aead::open(symmetric_key, encrypted_data).context(DecryptionError)?;
-
+  let decrypted = orion::aead::open(&symmetric_key, aead_bytes).context(DecryptionError)?;
   let raw_data = compressor::decompress(&decrypted).context(UncompressionError)?;
+
   Ok(raw_data)
 }
 
