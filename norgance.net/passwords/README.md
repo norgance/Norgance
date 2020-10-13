@@ -18,7 +18,7 @@ We want our users to use good passwords. In our opinion, the best way to check w
    * And https://haveibeenpwned.com/API/v3#SearchingPwnedPasswordsByRange
  * We overengineered it a bit for fun
    * Simply using sha1 hashes wasn't fun enough.
-   * We hash every sha1 hash again with blake2b, and some specific salt.
+   * We hash every sha1 hash again with blake2b, and some specific static salt.
    * To continue using text files in a simple and fast way, the number of times a hash has leaked is a single character following a logarithmic scale. A 0 means a password has leaked very few times, F means way too many times (`123456` or `qwerty` for example).
 
 ## How to run it

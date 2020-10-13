@@ -112,10 +112,6 @@ export default {
 /deep/ form.loading button[type="submit"] {
   animation-duration: 60s;
 }
-.identifier-input /deep/ input {
-  font-family: monospace;
-  line-height: 18px;
-}
 </style>
 
 <i18n lang="yaml">

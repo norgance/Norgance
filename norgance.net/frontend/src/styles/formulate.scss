@@ -1,6 +1,10 @@
 .formulate-input {
   margin-bottom: 1em;
 }
+.formulate-input input {
+  //font-family: monospace, monospace;
+  font-family: 'RobotoMono', 'Roboto Mono', 'Lucida Console', Monaco, 'Courier New', Courier, monospace;
+}
 .formulate-input .formulate-input-label {
   display: block;
   line-height: 1.5;
@@ -44,8 +48,8 @@
 .formulate-input[data-classification="text"] input {
   appearance: none;
   box-sizing: border-box;
-  font-size: 0.9em;
-  padding: 0.75em;
+  font-size: 1em;
+  padding: 0.7em;
   display: block;
   width: 100%;
   font-weight: 400;

@@ -23,7 +23,7 @@ We may add two factors authentication too. Changing password would be possible a
 
 To improve security, the encrypted data will not be available to anyone that do not have a correct password.
 
-The way is done is that we client will compute another hash of its password with specific salt, still using argon2id. This time it's simply a key to access to the encrypted data for the user.
+The way is done is that we client will compute another hash of its password with specific static salt, still using argon2id. This time it's simply a key to access to the encrypted data for the user.
 
 If the database is accessed by attackers, this security will do nothing. But we will do everything to protect the data.
 
