@@ -20,7 +20,6 @@
     clippy::match_wild_err_arm
 )]
 
-mod chatrouille;
 mod db;
 mod server;
 mod validation;

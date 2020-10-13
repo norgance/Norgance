@@ -1,0 +1,16 @@
+[package]
+name = "chatrouille"
+version = "0.1.0"
+authors = ["Norgance <66333061+norgance-admin@users.noreply.github.com>"]
+edition = "2018"
+
+[dependencies]
+base64 = "0.13.0"
+blake2-rfc = "0.2.18"
+ed25519-dalek = "1.0.1"
+libflate = "1.0.2"
+orion = "0.15.4"
+rand = "0.7.3"
+snafu = "0.6.9"
+x25519-dalek = "1.1.0"
+x448 = "0.6.0"

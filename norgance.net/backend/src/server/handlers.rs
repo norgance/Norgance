@@ -1,4 +1,3 @@
-use crate::chatrouille;
 use crate::db;
 use crate::server::graphql;
 

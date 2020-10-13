@@ -6,7 +6,7 @@ edition = "2018"
 
 [dependencies]
 base64 = "0.13.0"
-blake2-rfc = "0.2.18"
+chatrouille = { version = "0.1.0", path = "../chatrouille" }
 diesel = { version = "1.4.5", features = ["postgres","r2d2"] }
 diesel_migrations = "1.4.0"
 ed25519-dalek = "1.0.1"
@@ -16,7 +16,6 @@ juniper = { git = "https://github.com/graphql-rust/juniper" }
 juniper_hyper = { git = "https://github.com/graphql-rust/juniper" }
 lazy_static = "1.4.0"
 lenient_bool = "0.1.1"
-libflate = "1.0.2"
 orion = "0.15.4"
 pretty_env_logger = "0.4.0"
 r2d2 = "0.8.9"
@@ -24,9 +23,9 @@ rand = "0.7.3"
 regex = "1"
 reqwest = { version = "0.10.8", features = ["json"] }
 serde = "1.0.116"
-serde_json = "1.0.58"
+serde_json = "1.0.59"
 snafu = "0.6.9"
-tokio = {version = "0.2.22", features = ["full"] }
+tokio = { version = "0.2.22", features = ["full"] }
 x25519-dalek = "1.1.0"
 x448 = "0.6.0"
 

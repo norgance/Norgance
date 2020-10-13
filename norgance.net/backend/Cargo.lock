@@ -137,6 +137,21 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "4785bdd1c96b2a846b2bd7cc02e86b6b3dbf14e7e53446c4f54c92a361040822"
 
 [[package]]
+name = "chatrouille"
+version = "0.1.0"
+dependencies = [
+ "base64 0.13.0",
+ "blake2-rfc",
+ "ed25519-dalek",
+ "libflate",
+ "orion",
+ "rand",
+ "snafu",
+ "x25519-dalek",
+ "x448",
+]
+
+[[package]]
 name = "chrono"
 version = "0.4.19"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -996,7 +1011,7 @@ name = "norgance"
 version = "0.1.0"
 dependencies = [
  "base64 0.13.0",
- "blake2-rfc",
+ "chatrouille",
  "diesel",
  "diesel_migrations",
  "ed25519-dalek",
@@ -1006,7 +1021,6 @@ dependencies = [
  "juniper_hyper",
  "lazy_static",
  "lenient_bool",
- "libflate",
  "orion",
  "pretty_env_logger",
  "r2d2",
@@ -1466,9 +1480,9 @@ dependencies = [
 
 [[package]]
 name = "serde_json"
-version = "1.0.58"
+version = "1.0.59"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a230ea9107ca2220eea9d46de97eddcb04cd00e92d13dda78e478dd33fa82bd4"
+checksum = "dcac07dbffa1c65e7f816ab9eba78eb142c6d44410f4eeba1e26e4f5dfa56b95"
 dependencies = [
  "indexmap",
  "itoa",
