@@ -1,12 +1,18 @@
 <template>
   <div>
     <div v-if="waiting">⏳</div>
-    <div v-else>{{ valid ? '✅' : '💩' }}</div>
+    <div v-else>{{ valid ? "✅" : "💩" }}</div>
   </div>
 </template>
 
 <script>
-import { norganceIdentifier, norganceHibpPasswordHash } from '../rust';
+import ky from 'ky';
+import {
+  norganceIdentifier,
+  norganceHibpPasswordHash,
+  chatrouillePackUnsignedQuery,
+  chatrouilleUnpackResponse,
+} from '../rust';
 
 export default {
   name: 'RustCheck',
@@ -39,6 +45,89 @@ export default {
       clearTimeout(timeoutId);
       this.waiting = false;
     }
+
+    const publicKey = Uint8Array.from([
+      62,
+      183,
+      168,
+      41,
+      176,
+      205,
+      32,
+      245,
+      188,
+      252,
+      11,
+      89,
+      155,
+      111,
+      236,
+      207,
+      109,
+      164,
+      98,
+      113,
+      7,
+      189,
+      176,
+      212,
+      243,
+      69,
+      180,
+      48,
+      39,
+      216,
+      185,
+      114,
+      252,
+      62,
+      52,
+      251,
+      66,
+      50,
+      161,
+      60,
+      167,
+      6,
+      220,
+      181,
+      122,
+      236,
+      61,
+      174,
+      7,
+      189,
+      193,
+      198,
+      123,
+      243,
+      54,
+      9,
+    ]);
+    const lapin = await chatrouillePackUnsignedQuery(
+      JSON.stringify({
+        graphql: {
+          operationName: 'loadCitizenPublicKey',
+          variables: {
+            identifier: 'p32JCE3v2HUUAm1Dq9iJbn3nyDs5JNnnG6wIifwb7zl6tZcH2Cjy7JUKdZbCutlJ',
+          },
+          query:
+            'query loadCitizenPublicKey($identifier: String!) { loadCitizenPublicKeys(identifier: $identifier) { publicX448 publicX25519Dalek publicEd25519Dalek }}',
+        },
+      }),
+      publicKey,
+    );
+    console.log(lapin, lapin.lapin);
+    const renard = await ky.post('http://localhost:3000/chatrouille', {
+      body: lapin.query,
+    });
+    console.log(renard);
+    const data = await renard.arrayBuffer();
+    const packedData = new Uint8Array(data);
+    const sharedSecret = lapin.sharedSecret;
+    const decoded = await chatrouilleUnpackResponse(packedData, sharedSecret);
+    const json = JSON.parse(decoded);
+    console.log(json);
 
     console.time('canard');
     const pa = await norganceIdentifier('canard');

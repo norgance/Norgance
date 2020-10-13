@@ -34,4 +34,18 @@ export const norganceHibpPasswordHash = mem((password, size = 16) => promiseWork
   cacheKey: JSON.stringify,
 });
 
+export function chatrouillePackUnsignedQuery(payload, publicKey) {
+  return promiseWorker.postMessage({
+    function: 'chatrouille_pack_unsigned_query',
+    args: [payload, publicKey],
+  });
+}
+
+export function chatrouilleUnpackResponse(packedData, sharedSecret) {
+  return promiseWorker.postMessage({
+    function: 'chatrouille_unpack_response',
+    args: [packedData, sharedSecret],
+  });
+}
+
 export default promiseWorker;

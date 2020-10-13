@@ -11,5 +11,19 @@ registerPromiseWorker(async (message) => {
     throw new TypeError(`Unknown function ${functionName}`);
   }
 
-  return rust[functionName](...message.args);
+  const returnObject = await rust[functionName](...message.args);
+
+  if (returnObject instanceof rust.ChatrouilleUnsignedQuery) {
+    // We need to build the final object in the worker
+    const finalObject = {
+      query: returnObject.get_query(),
+      sharedSecret: returnObject.get_shared_secret(),
+    };
+
+    // It's important to not leak memory
+    returnObject.free();
+    return finalObject;
+  }
+
+  return returnObject;
 });

@@ -13,6 +13,7 @@
     "@braid/vue-formulate": "^2.4.5",
     "@braid/vue-formulate-i18n": "^1.13.0",
     "core-js": "^3.6.5",
+    "ky": "^0.24.0",
     "mem": "^8.0.0",
     "milligram": "^1.4.1",
     "promise-worker": "^2.0.1",
