@@ -1,4 +1,27 @@
-#![allow(clippy::indexing_slicing, clippy::as_conversions)]
+#![warn(
+  clippy::all,
+  //clippy::restriction,
+  clippy::pedantic,
+  clippy::needless_pass_by_value,
+  clippy::unwrap_used,
+  clippy::clone_on_ref_ptr
+)]
+#![allow(
+  clippy::missing_errors_doc,
+  clippy::as_conversions,
+  clippy::clone_on_ref_ptr,
+  clippy::else_if_without_else,
+  clippy::implicit_return,
+  clippy::indexing_slicing,
+  clippy::integer_arithmetic,
+  clippy::match_wild_err_arm,
+  clippy::missing_docs_in_private_items,
+  clippy::module_name_repetitions,
+  clippy::single_match_else,
+  clippy::unreachable,
+  clippy::used_underscore_binding,
+  clippy::wildcard_imports
+)]
 
 pub mod compressor;
 pub mod key_utils;
@@ -103,7 +126,6 @@ const MINIMUM_QUERY_DATA_LENGTH: usize =
   PACKET_VERSION_LENGTH + MODE_LENGTH + CLIENT_PUBLIC_KEY_LENGTH + NOUNCE_LENGTH + TAG_LENGTH;
 const MINIMUM_RESPONSE_DATA_LENGTH: usize =
   PACKET_VERSION_LENGTH + MODE_LENGTH + NOUNCE_LENGTH + TAG_LENGTH;
-const MINIMUM_SIGNED_QUERY_DATA_LENGTH: usize = MINIMUM_QUERY_DATA_LENGTH + SIGNATURE_LENGTH;
 const SIGNATURE_BLAKE2B_HASH_SIZE: usize = 64;
 // Salt for the signature - French revolution - https://en.wikipedia.org/wiki/Nothing-up-my-sleeve_number
 const SIGNATURE_BLAKE2B_HASH_SALT: &[u8; 16] = b"chatrouille-1789";
@@ -185,6 +207,31 @@ fn pack(
 ) -> Result<Vec<u8>> {
   let mode_byte = mode.clone() as u8;
 
+  let mut signature_bytes = Vec::with_capacity(0);
+  if mode == Mode::SignedQuery {
+    use blake2_rfc::blake2b::blake2b;
+    use ed25519_dalek::Signer;
+
+    let keypair = match client_keypair {
+      Some(ckp) => ckp,
+      None => return Err(ChatrouilleError::MissingKeyPair),
+    };
+
+    // We sign on the hash because we can.
+    // It allows us to keep only the hash and not the full data
+    // when we want to verify the signature letter.
+    // The whole thing is also a Rube Goldberg machine.
+    let packet_hash = blake2b(
+      SIGNATURE_BLAKE2B_HASH_SIZE,
+      SIGNATURE_BLAKE2B_HASH_SALT,
+      &data,
+    );
+
+    let packet_hash_bytes = packet_hash.as_bytes();
+    let signature = keypair.sign(packet_hash_bytes);
+    signature_bytes = signature.to_bytes().to_vec();
+  }
+
   let mut compressed = compressor::compress(&data).context(CompressionError)?;
 
   // To slightly improve the privacy, we pad all
@@ -196,8 +243,15 @@ fn pack(
 
   let symmetric_key = key_utils::derive_shared_secret_to_sym_key(shared_secret, &[mode_byte])
     .context(KeyDerivationError)?;
+  let payload = if mode == Mode::SignedQuery {
+    let mut compressed_and_signed = compressed;
+    compressed_and_signed.append(&mut signature_bytes);
+    compressed_and_signed
+  } else {
+    compressed
+  };
 
-  let mut encrypted = orion::aead::seal(&symmetric_key, &compressed).context(EncryptionError)?;
+  let mut encrypted = orion::aead::seal(&symmetric_key, &payload).context(EncryptionError)?;
 
   let packed_data_length = PACKET_VERSION_LENGTH
     + MODE_LENGTH
@@ -206,11 +260,7 @@ fn pack(
       Mode::Response => 0,
       Mode::Unknown => return Err(ChatrouilleError::InvalidMode),
     }
-    + encrypted.len()
-    + match mode {
-      Mode::SignedQuery => SIGNATURE_LENGTH,
-      Mode::Query | Mode::Response | Mode::Unknown => 0,
-    };
+    + encrypted.len();
 
   let mut packed_data: Vec<u8> = Vec::with_capacity(packed_data_length);
 
@@ -220,29 +270,6 @@ fn pack(
     packed_data.extend(client_public_key_bytes);
   }
   packed_data.append(&mut encrypted);
-
-  if mode == Mode::SignedQuery {
-    use blake2_rfc::blake2b::blake2b;
-    use ed25519_dalek::Signer;
-
-    let keypair = match client_keypair {
-      Some(ckp) => ckp,
-      None => return Err(ChatrouilleError::MissingKeyPair),
-    };
-
-    // We sign first because appending the data will move the data
-    let packet_hash = blake2b(
-      SIGNATURE_BLAKE2B_HASH_SIZE,
-      SIGNATURE_BLAKE2B_HASH_SALT,
-      &packed_data,
-    );
-    let packet_hash_bytes = packet_hash.as_bytes();
-    let signature = keypair.sign(packet_hash_bytes);
-    let bytes = &signature.to_bytes();
-
-    packed_data.extend_from_slice(bytes);
-  }
-
   Ok(packed_data)
 }
 
@@ -258,11 +285,8 @@ pub fn unpack_query(packed_data: &[u8], private_key: &x448::Secret) -> Result<Un
   }
 
   let mode = Mode::from(packed_data[PACKET_VERSION_LENGTH]);
-  if mode == Mode::SignedQuery {
-    if data_length < MINIMUM_SIGNED_QUERY_DATA_LENGTH {
-      return Err(ChatrouilleError::NotEnoughData);
-    }
-  } else if mode != Mode::Query {
+  // If wrong mode
+  if mode != Mode::SignedQuery && mode != Mode::Query {
     return Err(ChatrouilleError::InvalidModeInData);
   }
 
@@ -283,33 +307,26 @@ pub fn unpack_query(packed_data: &[u8], private_key: &x448::Secret) -> Result<Un
   let symmetric_key = key_utils::derive_shared_secret_to_sym_key(&shared_secret, &[mode_byte])
     .context(KeyDerivationError)?;
 
-  let aead_bytes = match mode {
-    Mode::Query => {
-      &packed_data[PACKET_VERSION_LENGTH + MODE_LENGTH + CLIENT_PUBLIC_KEY_LENGTH..data_length]
-    }
-    Mode::SignedQuery => {
-      &packed_data[PACKET_VERSION_LENGTH + MODE_LENGTH + CLIENT_PUBLIC_KEY_LENGTH
-        ..data_length - SIGNATURE_LENGTH]
-    }
-    Mode::Response | Mode::Unknown => return Err(ChatrouilleError::InvalidModeInData),
-  };
-
-  let raw_data = unpack(aead_bytes, &symmetric_key)?;
+  let aead_bytes =
+    &packed_data[PACKET_VERSION_LENGTH + MODE_LENGTH + CLIENT_PUBLIC_KEY_LENGTH..data_length];
+  let decrypted_bytes = orion::aead::open(&symmetric_key, aead_bytes).context(DecryptionError)?;
 
   if mode == Mode::SignedQuery {
     use blake2_rfc::blake2b::blake2b;
     use ed25519_dalek::Signature;
     use std::convert::TryFrom;
 
-    let signature_bytes = &packed_data[data_length - SIGNATURE_LENGTH..data_length];
-    let everything_else_bytes = &packed_data[0..data_length - SIGNATURE_LENGTH];
+    let decrypted_length = decrypted_bytes.len();
+    let signature_bytes = &decrypted_bytes[decrypted_length - SIGNATURE_LENGTH..decrypted_length];
+    let signature = Signature::try_from(signature_bytes).context(SignatureError)?;
+    let compressed_data = &decrypted_bytes[0..decrypted_length - SIGNATURE_LENGTH];
+    let raw_data = compressor::decompress(&compressed_data).context(UncompressionError)?;
+
     let packet_hash = blake2b(
       SIGNATURE_BLAKE2B_HASH_SIZE,
       SIGNATURE_BLAKE2B_HASH_SALT,
-      &everything_else_bytes,
+      &raw_data,
     );
-    let signature = Signature::try_from(signature_bytes).context(SignatureError)?;
-
     return Ok(UnpackedQuery {
       payload: raw_data,
       mode,
@@ -320,7 +337,7 @@ pub fn unpack_query(packed_data: &[u8], private_key: &x448::Secret) -> Result<Un
       }),
     });
   }
-
+  let raw_data = compressor::decompress(&decrypted_bytes).context(UncompressionError)?;
   Ok(UnpackedQuery {
     payload: raw_data,
     mode,
@@ -418,7 +435,7 @@ mod tests {
           Some(signature) => signature.verify(&keypair.public).is_ok(),
           None => false,
         };
-        assert_eq!(signed, true);
+        assert!(signed);
         let canard_response =
           pack_response(b"Bien le bonjour aussi", &unpacked_query.shared_secret)
             .expect("pack response");
@@ -433,7 +450,7 @@ mod tests {
           Err(_) => panic!("oops 1"),
         }
       }
-      Err(_) => panic!("oops 2"),
+      Err(x) => panic!("oops 2: {:?}", x),
     };
   }
 
@@ -503,11 +520,10 @@ mod tests {
 
     // Wrong aead data - invalid tag
     let mut query_with_weird_aead_data = query.clone();
-    query_with_weird_aead_data[query.len()-1] = 128;
+    query_with_weird_aead_data[query.len() - 1] = 128;
     assert!(unpack_query(&query_with_weird_aead_data, &server_private_key).is_err());
 
     assert!(unpack_response(&[], &shared_secret).is_err());
-    
     // Building a valid response to modify it later
     let response = pack_response(b"hei hei", &shared_secret).unwrap();
 
@@ -515,7 +531,7 @@ mod tests {
     response_with_wrong_version[0] = 128;
     assert!(unpack_response(&response_with_wrong_version, &shared_secret).is_err());
 
-    let mut response_with_wrong_mode = response;//.clone();
+    let mut response_with_wrong_mode = response; //.clone();
     response_with_wrong_mode[PACKET_VERSION_LENGTH] = 128;
     assert!(unpack_response(&response_with_wrong_mode, &shared_secret).is_err());
   }
