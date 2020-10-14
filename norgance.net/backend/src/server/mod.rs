@@ -38,15 +38,12 @@ pub async fn server_main(
             Ok::<_, hyper::Error>(service_fn(move |req| {
                 let root_node = root_node.clone();
                 let arc_db_pool = arc_db_pool.clone();
+                #[allow(unused_variables)] // It's used in development mode
                 let authentication_bearer = authentication_bearer.clone();
                 let server_private_key = server_private_key.clone();
 
                 async move {
                     match (req.method(), req.uri().path()) {
-                        (&Method::GET, "/graphql") | (&Method::POST, "/graphql") => {
-                            handlers::graphql(req, root_node, arc_db_pool, authentication_bearer)
-                                .await
-                        }
                         (&Method::POST, "/chatrouille") => {
                             handlers::chatrouille(req, server_private_key, root_node, arc_db_pool).await
                         }
@@ -54,6 +51,12 @@ pub async fn server_main(
                             handlers::chatrouille_public_key()
                         }
                         (&Method::GET, "/health") => handlers::health(arc_db_pool),
+                        #[cfg(feature = "development")]
+                        (&Method::GET, "/graphql") | (&Method::POST, "/graphql") => {
+                            handlers::graphql(req, root_node, arc_db_pool, authentication_bearer)
+                                .await
+                        }
+                        #[cfg(feature = "development")]
                         (&Method::GET, "/") => juniper_hyper::playground("/graphql", None).await,
                         _ => handlers::not_found(),
                     }

@@ -4,6 +4,10 @@ version = "0.1.0"
 authors = ["Norgance <66333061+norgance-admin@users.noreply.github.com>"]
 edition = "2018"
 
+[features]
+default = []
+development = []
+
 [dependencies]
 base64 = "0.13.0"
 chatrouille = { version = "0.1.0", path = "../chatrouille" }
