@@ -7,6 +7,7 @@ const defaultState = {
   birthplace: '',
   identifier: '',
   identifierHash: '',
+  identifierIsAvailable: true,
   password: '',
 };
 
@@ -37,6 +38,9 @@ export default {
     updateIdentifierHash(state, identifierHash) {
       state.identifierHash = identifierHash;
     },
+    updateIdentifierAvailability(state, availability) {
+      state.identifierIsAvailable = !!availability;
+    },
     updatePassword(state, password) {
       state.password = password;
     },
@@ -54,6 +58,10 @@ export default {
 
     async registerCitizenship({ commit }) {
       commit('reset');
+    },
+
+    async checkIdentifierAvailability({ commit }) {
+      commit('updateIdentifierAvailability', false);
     },
   },
 };

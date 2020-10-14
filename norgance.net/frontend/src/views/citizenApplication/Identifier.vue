@@ -8,7 +8,7 @@
         :help="$t('identifierHelp')"
         v-model="identifier"
         validation="matches:/^[^\s]*$/"
-        pattern="[^\s]*"
+        :pattern="regexPattern"
         :validation-messages="{ matches: $t('noSpaces') }"
         error-behavior="live"
         required
@@ -37,6 +37,7 @@
   </div>
 </template>
 <script>
+import escapeRegExp from 'lodash.escaperegexp';
 import Spinner from '../../components/Spinner.vue';
 
 export default {
@@ -49,7 +50,7 @@ export default {
       identifier: this.$store.state.citizenApplication.identifier || '',
       loading: false,
       error: false,
-      alreadyUsed: false,
+      alreadyUsed: !this.$store.state.citizenApplication.identifierIsAvailable,
     };
   },
   computed: {
@@ -60,6 +61,17 @@ export default {
     },
     confusingCharacters() {
       return /(I.*l)|(l.*I)/.test(this.identifier);
+    },
+    identifierIsAvailable() {
+      return this.$store.state.citizenApplication.identifierIsAvailable;
+    },
+    regexPattern() {
+      // If the identifier is already used,
+      // We build a regex to reject it.
+      if (this.alreadyUsed) {
+        return `(?!${escapeRegExp(this.identifier)})`;
+      }
+      return '[^\\s]*';
     },
   },
   methods: {
@@ -74,7 +86,9 @@ export default {
       try {
         console.time('identifier');
         await this.$store.dispatch('citizenApplication/setIdentifier', this.identifier);
-        if (this.loading) {
+        await this.$store.dispatch('citizenApplication/checkIdentifierAvailability');
+        this.alreadyUsed = !this.identifierIsAvailable;
+        if (this.loading && this.identifierIsAvailable) {
           this.$router.push({ name: 'CitizenApplicationPassword' });
         }
         console.timeEnd('identifier');
@@ -97,6 +111,15 @@ export default {
     if (!this.$store.state.citizenApplication.name) {
       this.$router.push({ name: 'CitizenApplicationNames' });
     }
+  },
+  watch: {
+    identifierIsAvailable(newAvailability) {
+      console.log('lol', newAvailability);
+      this.alreadyUsed = !newAvailability;
+    },
+    identifier() {
+      this.alreadyUsed = false;
+    },
   },
 };
 </script>
