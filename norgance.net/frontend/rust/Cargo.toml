@@ -14,6 +14,7 @@ crate-type = ["cdylib", "rlib"]
 default = ["console_error_panic_hook"]
 
 [dependencies]
+base64 = "0.13.0"
 blake2-rfc = "0.2.18"
 chatrouille = { version = "0.1.0", path = "../../chatrouille", features = ["wasm-bindgen"] }
 getrandom = { version = "0.2.0", features = ["js"] }

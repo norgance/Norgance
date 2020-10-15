@@ -83,7 +83,7 @@ pub fn norgance_identifier(identifier: &str) -> Result<String> {
         thread_mode: argon2::ThreadMode::Sequential,
         secret: &[],
         ad: &[],
-        hash_length: 16,
+        hash_length: 48, // 48 bytes, 64 bytes long encoded in base64
     };
 
     let hash = match argon2::hash_raw(identifier.as_bytes(), NORGANCE_SALT, &ARGON2ID_SETTINGS) {
@@ -91,13 +91,8 @@ pub fn norgance_identifier(identifier: &str) -> Result<String> {
         Err(_) => return Err(NorganceError::Argon2.into()),
     };
 
-    let mut bytes: [u8; 16] = [0; 16];
-    bytes.clone_from_slice(&hash[0..16]);
-
-    Ok(uuid::Builder::from_bytes(bytes)
-        .set_variant(uuid::Variant::Future)
-        .build()
-        .to_string())
+    let encoded = base64::encode_config(hash, base64::STANDARD_NO_PAD);
+    Ok(encoded)
 }
 
 fn norgance_argon2id(identifier: &str, password: &str, mode: &[u8]) -> Result<String> {

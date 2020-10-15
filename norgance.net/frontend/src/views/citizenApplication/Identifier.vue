@@ -161,7 +161,7 @@ fr:
     le conserver précieusement.
     Certaines procédures vous demanderont de partager
     votre identifiant à des personnes de confiance,
-    notamment à votre futur épous·e lors d'un mariage ou vos enfants.
+    par exemple à votre épous·e ou à vos enfants.
   specialCharacters: |
     Votre identifant contient des caractères spéciaux.
     Certaines personnes peuvent avoir des difficultés
@@ -170,6 +170,9 @@ fr:
     Votre identifiant contient des caractères parfois difficiles à déterminer,
     tel qu'un L minuscule et un i majuscule (I et l).
     Essayer d'utiliser que des lettres minuscules et majuscules dans votre identifiant.
+  alreadyUsed: |
+    Désolé mais votre identifiant n'est pas disponible.
+    Vous devez utiliser un autre identifiant de citoyen.
   noSpaces: Votre identifiant ne doit pas contenir d'espaces.
   back: Retour à vos informations de naissance.
   continue: Continuer

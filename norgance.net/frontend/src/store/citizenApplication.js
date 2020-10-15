@@ -1,4 +1,5 @@
 import { norganceIdentifier } from '../rust';
+import { anonymousQuery } from '../chatrouille';
 
 const defaultState = {
   name: '',
@@ -60,8 +61,19 @@ export default {
       commit('reset');
     },
 
-    async checkIdentifierAvailability({ commit }) {
-      commit('updateIdentifierAvailability', false);
+    async checkIdentifierAvailability({ commit, state }) {
+      if (!state.identifierHash) {
+        throw new Error('Identifier hash must be computed first');
+      }
+      const response = await anonymousQuery({
+        query: `query isIdentifierAvailable($identifier: String!) {
+          isIdentifierAvailable(identifier: $identifier)
+        }`,
+        variables: {
+          identifier: state.identifierHash,
+        },
+      });
+      commit('updateIdentifierAvailability', response.isIdentifierAvailable);
     },
   },
 };
