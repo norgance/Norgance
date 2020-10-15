@@ -13,6 +13,9 @@ pub enum NorganceError {
 
     #[snafu(display("Database transaction error"))]
     DatabaseTransactionError { source: diesel::result::Error },
+
+    #[snafu(display("The identifier format is invalid"))]
+    InvalidIdentifier,
 }
 
 /**
@@ -86,7 +89,7 @@ impl Query {
     /// they may get an error later even though this call returned true.
     fn isIdentifierAvailable(context: &Ctx, identifier: String) -> FieldResult<bool> {
         if !validation::validate_identifier(&identifier) {
-            return Ok(false);
+            return Err(NorganceError::InvalidIdentifier.into());
         }
 
         let db = context.db_pool.get().context(DatabaseConnectionError)?;
