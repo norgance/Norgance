@@ -1,4 +1,4 @@
-import { norganceIdentifier } from '../rust';
+import { norganceIdentifier, norganceHibpPasswordHash } from '../rust';
 import { anonymousQuery } from '../chatrouille';
 
 const defaultState = {
@@ -65,7 +65,7 @@ export default {
       if (!state.identifierHash) {
         throw new Error('Identifier hash must be computed first');
       }
-      const response = await anonymousQuery({
+      const isIdentifierAvailable = await anonymousQuery({
         query: `query isIdentifierAvailable($identifier: String!) {
           isIdentifierAvailable(identifier: $identifier)
         }`,
@@ -73,7 +73,29 @@ export default {
           identifier: state.identifierHash,
         },
       });
-      commit('updateIdentifierAvailability', response.isIdentifierAvailable);
+      commit('updateIdentifierAvailability', isIdentifierAvailable);
+    },
+
+    async checkPasswordQuality({ state }) {
+      const hash = await norganceHibpPasswordHash(state.password);
+      const prefix = hash.slice(0, 5);
+      const suffix = hash.slice(5);
+      console.log(hash);
+
+      const checkPasswordQuality = await anonymousQuery({
+        query: `query checkPasswordQuality($prefix: String!) {
+          checkPasswordQuality(prefix: $prefix) {
+            suffix quality
+          }
+        }`,
+        variables: {
+          prefix,
+        },
+      });
+
+      const quality = checkPasswordQuality.find((password) => password.suffix === suffix);
+
+      return quality ? quality.quality : 'good';
     },
   },
 };

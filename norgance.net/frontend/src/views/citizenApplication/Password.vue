@@ -1,6 +1,6 @@
 <template>
   <div>
-    <FormulateForm @submit="nextStep">
+    <FormulateForm @submit="nextStep" :class="{ loading }">
       <p class="warning">{{ $t("passwordWarning") }}</p>
       <p class="warning-following">{{ $t("passwordWarningFollowing") }}</p>
       <FormulateInput
@@ -17,6 +17,7 @@
           validationNoName: $t('validationNoName'),
           validationNoIdentifier: $t('validationNoIdentifier'),
         }"
+        :disabled="loading"
       />
       <FormulateInput
         name="passwordConfirm"
@@ -30,8 +31,41 @@
         :validation-messages="{
           validationCopy: $t('validationCopy'),
         }"
+        :disabled="loading"
       />
-      <FormulateInput type="submit" :name="$t('continue')" />
+      <p v-if="worstPassword" class="worst-password">
+        {{ $t("worstPassword") }}
+      </p>
+      <p v-if="terriblePassword" class="terrible-password">
+        {{ $t("terriblePassword") }}
+      </p>
+      <p v-if="badPassword" class="bad-password">
+        {{ $t("badPassword") }}
+      </p>
+      <p v-if="rarePassword" class="rare-password">
+        {{ $t("rarePassword") }}
+      </p>
+      <p v-if="error" class="error">
+        {{ $t("error") }}
+      </p>
+      <FormulateInput
+        v-model="doNotCareAboutThePassword"
+        v-if="badPassword || terriblePassword"
+        required
+        type="checkbox"
+        :label="$t('doNotCareAboutThePassword')"
+      />
+      <FormulateInput
+        v-model="noRegrets"
+        v-if="doNotCareAboutThePassword"
+        required
+        type="checkbox"
+        :label="$t('noRegrets')"
+      />
+      <FormulateInput type="submit">
+        {{ $t("continue") }}
+        <Spinner v-if="loading" />
+      </FormulateInput>
       <router-link :to="{ name: 'CitizenApplicationIdentifier' }">{{
         $t("back")
       }}</router-link>
@@ -39,12 +73,26 @@
   </div>
 </template>
 <script>
+import Spinner from '../../components/Spinner.vue';
+
 export default {
   name: 'CitizenApplicationPassword',
+  components: {
+    Spinner,
+  },
   data() {
     return {
       password: this.$store.state.citizenApplication.password || '',
       passwordConfirm: this.$store.state.citizenApplication.password || '',
+      loading: false,
+      error: false,
+      rarePassword: false,
+      badPassword: false,
+      terriblePassword: false,
+      worstPassword: false,
+      doNotCareAboutThePassword: false,
+      noRegrets: false,
+      dirty: true,
     };
   },
   computed: {
@@ -56,9 +104,81 @@ export default {
     },
   },
   methods: {
-    nextStep() {
-      this.$store.commit('citizenApplication/updatePassword', this.password);
-      this.$router.push({ name: 'CitizenApplicationSummary' });
+    async nextStep() {
+      if (this.loading || this.worstPassword) return;
+
+      this.loading = true;
+      const timeoutId = setTimeout(() => {
+        this.fail();
+      }, 30_000);
+
+      let goodPassword = false;
+
+      if (this.dirty) {
+        try {
+          this.$store.commit('citizenApplication/updatePassword', this.password);
+          const quality = await this.$store.dispatch(
+            'citizenApplication/checkPasswordQuality',
+          );
+          this.badPassword = false;
+          this.terriblePassword = false;
+          this.worstPassword = false;
+          switch (quality) {
+            case 'F':
+            case 'E':
+              this.worstPassword = true;
+              break;
+            case 'D':
+            case 'C':
+            case 'B':
+            case 'A':
+              this.terriblePassword = true;
+              break;
+            case '9':
+            case '8':
+            case '7':
+            case '6':
+            case '5':
+            case '4':
+            case '3':
+            case '2':
+              this.badPassword = true;
+              break;
+            case '1':
+            case '0':
+              this.badPassword = true;
+              this.rarePassword = true;
+              break;
+            case 'good':
+            default:
+              goodPassword = true;
+              break;
+          }
+        } catch (error) {
+          this.error = true;
+          console.error(error);
+        } finally {
+          clearTimeout(timeoutId);
+          this.loading = false;
+        }
+        this.dirty = false;
+      }
+      if (goodPassword || (this.doNotCareAboutThePassword && this.noRegrets)) {
+        this.$router.push({ name: 'CitizenApplicationSummary' });
+      }
+    },
+    fail() {
+      this.loading = false;
+      this.error = true;
+      this.resetPasswordQuality();
+    },
+    resetPasswordQuality() {
+      this.rarePassword = false;
+      this.badPassword = false;
+      this.terriblePassword = false;
+      this.worstPassword = false;
+      this.doNotCareAboutThePassword = false;
+      this.noRegrets = false;
     },
     validationNoName(context) {
       return context.value !== this.name;
@@ -77,10 +197,28 @@ export default {
       this.$router.push({ name: 'CitizenApplicationIdentifier' });
     }
   },
+  watch: {
+    password() {
+      this.dirty = true;
+      this.resetPasswordQuality();
+    },
+  },
 };
 </script>
 
 <style lang="scss" scoped>
+.worst-password,
+.terrible-password,
+.bad-password,
+.error {
+  color: #f44336;
+}
+.rare-password {
+  color: #9C27B0;
+}
+.error {
+  font-size: 0.9em;
+}
 p.warning {
   font-size: 0.9em;
   font-weight: bold;
@@ -125,4 +263,19 @@ fr:
   validationCopy: |
     Vous avez saisie deux mots de passe différents.
     Veuillez vérifier la saisie de vos mots de passe.
+  worstPassword: |
+    Le mot de passe que vous avez choisi est beaucoup trop facile à deviner.
+    Vous devez en choisir un autre.
+  terriblePassword: |
+    Le mot de passe que vous avez choisi est très courant.
+    Il est très fortement conseillé d'en choisir un autre.
+  badPassword: |
+    Le mot de passe que vous avez choisi n'est pas sécurisé
+    car il fait partie des listes de mots de passes courants.
+    Il est très fortement conseillé d'en choisir un autre.
+  rarePassword: |
+    Si vous pensez être la seule personne qui utilise ce mot de passe,
+    vous devriez changer de mot de passe partout où vous l'avez utilisé.
+  doNotCareAboutThePassword: Utiliser ce mot de passe quand même.
+  noRegrets: J'assume les risques.
 </i18n>

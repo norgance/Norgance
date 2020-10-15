@@ -27,7 +27,7 @@ export const norganceCitizenAccessKey = mem(
   },
 );
 
-export const norganceHibpPasswordHash = mem((password, size = 16) => promiseWorker.postMessage({
+export const norganceHibpPasswordHash = mem((password, size = 20) => promiseWorker.postMessage({
   function: 'norgance_hibp_password_hash',
   args: [password, size],
 }), {

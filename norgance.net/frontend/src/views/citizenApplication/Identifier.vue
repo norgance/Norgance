@@ -20,11 +20,11 @@
       <p v-if="confusingCharacters" class="confusing-characters">
         {{ $t("confusingCharacters") }}
       </p>
-      <p v-if="error" class="error">
-        {{ $t("error") }}
-      </p>
       <p v-if="alreadyUsed" class="already-used">
         {{ $t("alreadyUsed") }}
+      </p>
+      <p v-if="error" class="error">
+        {{ $t("error") }}
       </p>
       <FormulateInput type="submit">
         {{ $t("continue") }}

@@ -98,7 +98,13 @@ export async function anonymousQuery(graphql) {
   if (jsonResponse.errors && Array.isArray(jsonResponse.errors) && jsonResponse.errors.length > 0) {
     throw new GraphqlError(jsonResponse.errors);
   }
-  return jsonResponse.data;
+
+  const data = jsonResponse.data;
+  const dataEntries = Object.entries(data);
+  if (dataEntries.length === 1) {
+    return dataEntries[0][1];
+  }
+  return data;
 }
 
 export async function authenticatedQuery(/* graphql, citizenIdentifier, citizenPrivateKey */) {
