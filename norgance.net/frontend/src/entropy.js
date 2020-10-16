@@ -58,14 +58,19 @@ export class Entropy {
         this.positionEventHandler(event.touches[i]);
       }
     }
-    // console.log(this.export());
   }
 
   positionEventHandler(event) {
-    this.registerEntropy(this.lastScreenX - event.screenX);
-    this.registerEntropy(this.lastScreenY - event.screenY);
-    this.lastScreenX = event.screenX;
-    this.lastScreenY = event.screenY;
+    const xDiff = this.lastScreenX - event.screenX;
+    if (xDiff !== 0) {
+      this.registerEntropy(xDiff);
+      this.lastScreenX = event.screenX;
+    }
+    const yDiff = this.lastScreenY - event.screenY;
+    if (yDiff !== 0) {
+      this.registerEntropy(yDiff);
+      this.lastScreenY = event.screenY;
+    }
   }
 
   registerEntropy(value) {
