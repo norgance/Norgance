@@ -20,7 +20,7 @@
     "promise-worker": "^2.0.1",
     "vue": "^2.6.12",
     "vue-i18n": "^8.22.0",
-    "vue-router": "^3.4.6",
+    "vue-router": "^3.4.7",
     "vuex": "^3.5.1"
   },
   "devDependencies": {
@@ -40,7 +40,6 @@
     "node-sass": "^4.14.1",
     "sass-loader": "^10.0.3",
     "vue-cli-plugin-i18n": "~1.0.1",
-    "vue-template-compiler": "^2.6.12",
-    "worker-plugin": "^5.0.0"
+    "vue-template-compiler": "^2.6.12"
   }
 }
