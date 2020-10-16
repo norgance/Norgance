@@ -63,8 +63,10 @@ export default {
     },
     isJustBorn() {
       // 7 days
+      const diff = CURRENT_DATE - this.$store.state.citizenApplication.birthday;
       return (
-        CURRENT_DATE - this.$store.state.citizenApplication.birthday
+        diff > 0
+        && diff
         < 1000 * 60 * 60 * 24 * 7
       );
     },
