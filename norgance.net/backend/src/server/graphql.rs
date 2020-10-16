@@ -162,7 +162,7 @@ pub struct Mutation;
     Context = Ctx,
 )]
 impl Mutation {
-    fn registerCitizenShip(
+    fn registerCitizenship(
         context: &Ctx,
         registration: CitizenRegistration,
     ) -> FieldResult<CitizenRegistrationResult> {
