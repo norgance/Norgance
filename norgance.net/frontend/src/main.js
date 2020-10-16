@@ -5,6 +5,7 @@ import App from './App.vue';
 import router from './router';
 import store from './store';
 import i18n, { formulateI18n } from './i18n';
+import entropy from './entropy';
 
 Vue.config.productionTip = true; // false;
 
@@ -21,3 +22,6 @@ new Vue({
   i18n,
   render: (h) => h(App),
 }).$mount('#app');
+
+window.entropy = entropy();
+window.entropy.start();

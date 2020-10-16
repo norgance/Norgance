@@ -1,4 +1,6 @@
 import ky from 'ky';
+
+import entropy from './entropy';
 import {
   chatrouillePackUnsignedQuery,
   chatrouilleUnpackResponse,
@@ -80,18 +82,23 @@ if (!CHATROUILLE_DEBUG_MODE) {
   console.info('Run enableChatrouilleDebug() to see the network exchanges.');
 }
 
-export async function anonymousQuery(graphql) {
+export async function anonymousGraphql(graphql) {
   if (CHATROUILLE_DEBUG_MODE) {
     console.info('Chatrouille query', graphql);
   }
+  const entropyInstance = entropy();
+  entropyInstance.ping(); // Ping before processing
   const payload = JSON.stringify({ graphql });
   const { query, sharedSecret } = await chatrouillePackUnsignedQuery(payload, publicKey);
+  entropyInstance.ping(); // Ping after processing
   const response = await ky.post('http://localhost:3000/chatrouille', {
     body: query,
   });
+  entropyInstance.ping(); // Ping after response
   const responseBody = await response.arrayBuffer();
   const decoded = await chatrouilleUnpackResponse(new Uint8Array(responseBody), sharedSecret);
   const jsonResponse = JSON.parse(decoded);
+  entropyInstance.ping(); // Ping after response processing
   if (CHATROUILLE_DEBUG_MODE) {
     console.info('Chatrouille response', jsonResponse);
   }

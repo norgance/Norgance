@@ -171,7 +171,7 @@ fr:
     tel qu'un L minuscule et un i majuscule (I et l).
     Essayer d'utiliser que des lettres minuscules et majuscules dans votre identifiant.
   alreadyUsed: |
-    Désolé mais votre identifiant n'est pas disponible.
+    Désolé mais cet identifiant n'est pas disponible.
     Vous devez utiliser un autre identifiant de citoyen.
   noSpaces: Votre identifiant ne doit pas contenir d'espaces.
   back: Retour à vos informations de naissance.

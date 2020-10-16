@@ -10,7 +10,7 @@ import {
   norganceIdentifier,
   norganceHibpPasswordHash,
 } from '../rust';
-import { anonymousQuery } from '../chatrouille';
+import { anonymousGraphql } from '../chatrouille';
 
 export default {
   name: 'RustCheck',
@@ -44,7 +44,7 @@ export default {
       this.waiting = false;
     }
 
-    const lapin = await anonymousQuery({
+    const lapin = await anonymousGraphql({
       operationName: 'loadCitizenPublicKey',
       variables: {
         identifier: 'p32JCE3v2HUUAm1Dq9iJbn3nyDs5JNnnG6wIifwb7zl6tZcH2Cjy7JUKdZbCutlJ',

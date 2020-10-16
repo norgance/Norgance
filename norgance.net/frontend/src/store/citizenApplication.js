@@ -1,5 +1,5 @@
 import { norganceIdentifier, norganceHibpPasswordHash } from '../rust';
-import { anonymousQuery } from '../chatrouille';
+import { anonymousGraphql } from '../chatrouille';
 
 const defaultState = {
   name: '',
@@ -57,15 +57,63 @@ export default {
       commit('updateIdentifierHash', hash);
     },
 
-    async registerCitizenship({ commit }) {
-      commit('reset');
+    async registerCitizenship({ state }) {
+      const identity = {
+        identifier: state.identifier,
+        name: state.name,
+      };
+      if (state.familyName) {
+        identity.familyName = state.familyName;
+      }
+      if (state.birthday) {
+        identity.birthday = state.birthday;
+      }
+      if (state.birthplace) {
+        identity.birthplace = state.birthplace;
+      }
+
+      const privateKeys = {
+        x448: 'canard',
+        x25519Dalek: 'canard',
+        ed25519Dalek: 'canard',
+      };
+
+      const privateData = {
+        identity,
+        privateKeys,
+      };
+
+      // TODO hein
+      const accessKey = state.identifierHash.toLocaleLowerCase();
+      const aeadData = btoa(JSON.stringify(privateData)).replace('=', '');
+
+      console.log(aeadData);
+      const result = await anonymousGraphql({
+        query: `mutation registerCitizenship($registration: CitizenRegistration!) {
+          registerCitizenship(registration: $registration) {
+            success
+          }
+        }`,
+        variables: {
+          registration: {
+            identifier: state.identifierHash,
+            accessKey,
+            publicX448: 'a',
+            publicX25519Dalek: 'b',
+            publicEd25519Dalek: 'c',
+            aeadData,
+          },
+        },
+      });
+      console.log(result);
+      // commit('reset');
     },
 
     async checkIdentifierAvailability({ commit, state }) {
       if (!state.identifierHash) {
         throw new Error('Identifier hash must be computed first');
       }
-      const isIdentifierAvailable = await anonymousQuery({
+      const isIdentifierAvailable = await anonymousGraphql({
         query: `query isIdentifierAvailable($identifier: String!) {
           isIdentifierAvailable(identifier: $identifier)
         }`,
@@ -82,7 +130,7 @@ export default {
       const suffix = hash.slice(5);
       console.log(hash);
 
-      const checkPasswordQuality = await anonymousQuery({
+      const checkPasswordQuality = await anonymousGraphql({
         query: `query checkPasswordQuality($prefix: String!) {
           checkPasswordQuality(prefix: $prefix) {
             suffix quality
