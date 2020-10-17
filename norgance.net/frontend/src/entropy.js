@@ -83,8 +83,8 @@ export class Entropy {
     this.eventHandler({ timestamp: +new Date() });
   }
 
-  export() {
-    return btoa(Array.from(this.data).map((b) => String.fromCharCode(b)).join(''));
+  debug() {
+    console.log(btoa(Array.from(this.data).map((b) => String.fromCharCode(b)).join('')));
   }
 }
 
