@@ -347,6 +347,7 @@ dependencies = [
  "console_error_panic_hook",
  "getrandom 0.2.0",
  "hex",
+ "rand",
  "rust-argon2",
  "sha1",
  "snafu",

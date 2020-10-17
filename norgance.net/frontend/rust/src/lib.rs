@@ -22,7 +22,7 @@
 )]
 mod utils;
 
-use snafu::Snafu;
+use snafu::{ResultExt, Snafu};
 use wasm_bindgen::prelude::*;
 
 // When the `wee_alloc` feature is enabled, use `wee_alloc` as the global
@@ -31,6 +31,7 @@ use wasm_bindgen::prelude::*;
 #[global_allocator]
 static ALLOC: wee_alloc::WeeAlloc = wee_alloc::WeeAlloc::INIT;
 
+#[allow(unused)]
 macro_rules! log {
     ( $( $t:tt )* ) => {
         web_sys::console::log_1(&format!( $( $t )* ).into());
@@ -56,6 +57,13 @@ pub enum NorganceError {
     SharedSecret,
     PublicKey,
     InvalidUTF8,
+    HashError {
+        source: std::array::TryFromSliceError,
+    },
+    RandomError {
+        source: rand::Error,
+    },
+    NotEnoughEntropy,
 }
 
 impl From<NorganceError> for wasm_bindgen::JsValue {
@@ -163,7 +171,10 @@ impl ChatrouilleUnsignedQuery {
 }
 
 #[wasm_bindgen]
-pub fn chatrouille_pack_unsigned_query(payload: &str, public_key: &[u8]) -> Result<ChatrouilleUnsignedQuery> {
+pub fn chatrouille_pack_unsigned_query(
+    payload: &str,
+    public_key: &[u8],
+) -> Result<ChatrouilleUnsignedQuery> {
     //log!("{:#x?}", public_key);
 
     let server_public_key = match x448::PublicKey::from_bytes(public_key) {
@@ -177,7 +188,7 @@ pub fn chatrouille_pack_unsigned_query(payload: &str, public_key: &[u8]) -> Resu
             Err(_) => return Err(NorganceError::ChatrouillePack.into()),
         };
 
-    Ok(ChatrouilleUnsignedQuery{
+    Ok(ChatrouilleUnsignedQuery {
         query,
         shared_secret: shared_secret.as_bytes().to_vec(),
     })
@@ -198,4 +209,60 @@ pub fn chatrouille_unpack_response(packed_data: &[u8], shared_secret: &[u8]) -> 
         Ok(r) => Ok(String::from(r)),
         Err(_) => Err(NorganceError::InvalidUTF8.into()),
     }
+}
+
+#[wasm_bindgen]
+pub struct NorganceRng {
+    rng: Box<rand::rngs::StdRng>,
+}
+
+#[wasm_bindgen]
+pub fn make_norgance_rng(entropy: &[u8]) -> Result<NorganceRng> {
+    use blake2_rfc::blake2b::Blake2b;
+    use rand::{Rng, RngCore, SeedableRng, rngs::StdRng};
+    use std::convert::TryInto;
+    
+    if entropy.len() < 1024 {
+        return Err(NorganceError::NotEnoughEntropy.into());
+    }
+
+    // 1024 CPRNG bits with a seed from crypto.getRandomBytes()
+    let mut arr = vec![0_u8; 1024];
+    rand::thread_rng()
+        .try_fill(&mut arr[..])
+        .context(RandomError)?;
+
+    // We combine that with the entropy from the client
+    // Using blake2b, because why not ?
+    // 256 bits / 32 bytes because it's the max without
+    // having to reimplement a rand::rng
+    let mut seed_hasher = Blake2b::new(32);
+    seed_hasher.update(entropy);
+    seed_hasher.update(&arr);
+
+    let seed: [u8; 32] = seed_hasher
+        .finalize()
+        .as_bytes()
+        .try_into()
+        .context(HashError)?;
+
+    let mut rng = StdRng::from_seed(seed);
+
+    // Consume 1024 bytes for no good reasons.
+    // Only to check that it works, and to make it
+    // a bit more difficult to guess the next bytes.
+    rng.try_fill_bytes(&mut arr[..]).context(RandomError)?;
+
+    Ok(NorganceRng { rng: Box::new(rng) })
+}
+
+#[wasm_bindgen]
+pub struct NorganceX448PrivateKey {
+    key: x448::Secret
+}
+
+#[wasm_bindgen]
+pub fn gen_x448_private_key(rng: &mut NorganceRng) -> NorganceX448PrivateKey {
+    let key = x448::Secret::new(&mut rng.rng);
+    NorganceX448PrivateKey { key }
 }
