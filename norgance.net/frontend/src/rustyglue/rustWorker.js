@@ -3,7 +3,7 @@
 let rust;
 self.addEventListener('message', async (event) => {
   const {
-    messageId, functionName, args, preload, className,
+    messageId, functionName, args, preload, className, freeResponseImmediately,
   } = event.data;
 
   if (typeof messageId === 'undefined') {
@@ -13,7 +13,7 @@ self.addEventListener('message', async (event) => {
   try {
     // Lazy loading
     if (!rust) {
-      rust = await import('../rust/pkg');
+      rust = await import('../../rust/pkg');
     }
 
     let rustFunction;
@@ -41,7 +41,10 @@ self.addEventListener('message', async (event) => {
     }
 
     const convertedArgs = args.map((arg) => {
-      if (arg && arg.ptr && arg.className) {
+      if (arg && arg.className) {
+        if (!arg.ptr) {
+          throw new Error(`No valid ptr for ${arg.className}`);
+        }
         const classConstructor = rust[arg.className];
         if (!classConstructor || !classConstructor.constructor) {
           throw new TypeError(`Unknown class ${arg.className}`);
@@ -60,7 +63,6 @@ self.addEventListener('message', async (event) => {
         ptr: returnObject.ptr,
         className: returnObject.constructor.name,
       };
-
 
       if (preload) {
         Object.entries(preload).forEach(([key, {
@@ -88,7 +90,11 @@ self.addEventListener('message', async (event) => {
         });
       }
 
-      // returnObject.free();
+      if (freeResponseImmediately) {
+        returnObject.free();
+        finalObject.ptr = 0;
+      }
+
       returnObject = finalObject;
     } else if (returnObject instanceof ArrayBuffer) {
       transferables = [returnObject];

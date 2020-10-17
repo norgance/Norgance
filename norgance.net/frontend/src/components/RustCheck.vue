@@ -9,7 +9,7 @@
 import {
   norganceIdentifier,
   norganceHibpPasswordHash,
-} from '../rust';
+} from '../rustyglue';
 import { anonymousGraphql } from '../chatrouille';
 
 export default {

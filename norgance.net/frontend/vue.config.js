@@ -5,9 +5,9 @@ const WorkerPlugin = require('worker-plugin');
 
 module.exports = {
 
-  /*configureWebpack: (config) => {
+  /* configureWebpack: (config) => {
     config.output.chunkFilename = 'js/[name].[hash:8].js';
-  },*/
+  }, */
 
   chainWebpack: (config) => {
     // rust wasm bindgen https://github.com/rustwasm/wasm-bindgen

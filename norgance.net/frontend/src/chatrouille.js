@@ -4,7 +4,7 @@ import entropy from './entropy';
 import {
   chatrouillePackUnsignedQuery,
   chatrouilleUnpackResponse,
-} from './rust';
+} from './rustyglue';
 
 const publicKey = Uint8Array.from([
   62,

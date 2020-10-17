@@ -1,4 +1,4 @@
-import { norganceIdentifier, norganceHibpPasswordHash } from '../rust';
+import { norganceIdentifier, norganceHibpPasswordHash } from '../rustyglue';
 import { anonymousGraphql } from '../chatrouille';
 
 const defaultState = {
