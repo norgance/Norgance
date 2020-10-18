@@ -10,6 +10,7 @@ self.addEventListener('message', async (event) => {
     className,
     freeResponseImmediately,
     returnClassName,
+    staticFunction,
   } = event.data;
 
   if (typeof messageId === 'undefined') {
@@ -25,19 +26,23 @@ self.addEventListener('message', async (event) => {
     let rustFunction;
 
     if (className) {
-      const ptr = event.data.ptr;
-      if (!ptr) {
-        throw new Error('Missing ptr');
-      }
-      const classConstructor = rust[className];
-      if (!classConstructor || !classConstructor.constructor) {
+      const classFunction = rust[className];
+      if (!classFunction || !classFunction.constructor) {
         throw new TypeError(`Unknown class ${className}`);
       }
 
-      // eslint-disable-next-line no-underscore-dangle
-      const classInstance = classConstructor.__wrap(ptr);
+      if (staticFunction) {
+        rustFunction = classFunction[functionName];
+      } else {
+        const ptr = event.data.ptr;
+        if (!ptr) {
+          throw new Error('Missing ptr');
+        }
 
-      rustFunction = classInstance[functionName];
+        // eslint-disable-next-line no-underscore-dangle
+        const classInstance = classFunction.__wrap(ptr);
+        rustFunction = classInstance[functionName];
+      }
     } else {
       rustFunction = rust[functionName];
     }

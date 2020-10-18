@@ -2,6 +2,12 @@ export default class RustPromiseWorker {
   constructor(worker, classes) {
     this.worker = worker;
     this.classes = classes;
+
+    Object.entries(classes).forEach(([, staticClass]) => {
+      // eslint-disable-next-line no-param-reassign
+      staticClass.promiseWorker = this;
+    });
+
     this.callbacks = new Map();
     this.currentMessageId = 0;
 
@@ -31,6 +37,7 @@ export default class RustPromiseWorker {
     className = undefined,
     freeResponseImmediately = false,
     returnClassName = undefined,
+    staticFunction = false,
   }) {
     const messageId = this.currentMessageId;
     this.currentMessageId += 1;
@@ -49,6 +56,7 @@ export default class RustPromiseWorker {
       className,
       freeResponseImmediately,
       returnClassName,
+      staticFunction,
     };
 
     return new Promise((resolve, reject) => {
@@ -64,7 +72,7 @@ export default class RustPromiseWorker {
             reject(new Error(`Unknown class ${response.className}`));
             return;
           }
-          resolve(new ClassConstructor(response, this));
+          resolve(new ClassConstructor(response));
           return;
         }
 

@@ -1,3 +1,4 @@
+/* eslint-disable no-underscore-dangle */
 /* eslint-disable max-classes-per-file */
 import RustClass from './rustClass';
 
@@ -10,4 +11,22 @@ export class ChatrouilleUnsignedQuery extends RustClass {
 }
 export class NorganceRng extends RustClass {
   static className = 'NorganceRng';
+
+  static async fromEntropy(entropy) {
+    return this._callStatic('from_entropy', {
+      args: [entropy.data],
+      // We don't transfer the data, we copy it
+      transfer: [],
+    });
+  }
+}
+
+export class NorganceX448PrivateKey extends RustClass {
+  static className = 'NorganceX448PrivateKey';
+
+  static async fromBase64(privateKeyBase64) {
+    return this._callStatic('from_base64', {
+      args: [privateKeyBase64],
+    });
+  }
 }

@@ -1,10 +1,11 @@
 import mem from 'mem';
 import PromiseWorker from './rustPromiseWorker';
-import entropy from '../entropy';
 import * as classes from './classes';
 
 const worker = new Worker('./rustWorker.js', { name: 'rustWorker', type: 'module' });
 const promiseWorker = new PromiseWorker(worker, classes);
+
+export const lolclasses = classes;
 
 export const norganceIdentifier = mem((identifier) => promiseWorker.call(
   'norgance_identifier', {
@@ -54,16 +55,6 @@ export function chatrouilleUnpackResponse(packedData, sharedSecret) {
   return promiseWorker.call('chatrouille_unpack_response', {
     args: [packedData, sharedSecret],
     transfer: [packedData.buffer, sharedSecret.buffer],
-  });
-}
-
-export function makeNorganceRng() {
-  const entropyData = entropy().data;
-  return promiseWorker.call('make_norgance_rng', {
-    args: [entropyData],
-    // We don't transfer the data, we copy it
-    transfer: [],
-    returnClassName: 'NorganceRng',
   });
 }
 

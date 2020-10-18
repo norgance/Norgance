@@ -64,6 +64,7 @@ pub enum NorganceError {
         source: rand::Error,
     },
     NotEnoughEntropy,
+    InvalidX448PrivateKey,
 }
 
 impl From<NorganceError> for wasm_bindgen::JsValue {
@@ -217,48 +218,65 @@ pub struct NorganceRng {
 }
 
 #[wasm_bindgen]
-pub fn make_norgance_rng(entropy: &[u8]) -> Result<NorganceRng> {
-    use blake2_rfc::blake2b::Blake2b;
-    use rand::{Rng, RngCore, SeedableRng, rngs::StdRng};
-    use std::convert::TryInto;
-    
-    if entropy.len() < 1024 {
-        return Err(NorganceError::NotEnoughEntropy.into());
+impl NorganceRng {
+    pub fn from_entropy(entropy: &[u8]) -> Result<NorganceRng> {
+        use blake2_rfc::blake2b::Blake2b;
+        use rand::{rngs::StdRng, Rng, RngCore, SeedableRng};
+        use std::convert::TryInto;
+
+        if entropy.len() < 1024 {
+            return Err(NorganceError::NotEnoughEntropy.into());
+        }
+
+        // 1024 CPRNG bits with a seed from crypto.getRandomBytes()
+        let mut arr = vec![0_u8; 1024];
+        rand::thread_rng()
+            .try_fill(&mut arr[..])
+            .context(RandomError)?;
+
+        // We combine that with the entropy from the client
+        // Using blake2b, because why not ?
+        // 256 bits / 32 bytes because it's the max without
+        // having to reimplement a rand::rng
+        let mut seed_hasher = Blake2b::new(32);
+        seed_hasher.update(entropy);
+        seed_hasher.update(&arr);
+
+        let seed: [u8; 32] = seed_hasher
+            .finalize()
+            .as_bytes()
+            .try_into()
+            .context(HashError)?;
+
+        let mut rng = StdRng::from_seed(seed);
+
+        // Consume 1024 bytes for no good reasons.
+        // Only to check that it works, and to make it
+        // a bit more difficult to guess the next bytes.
+        rng.try_fill_bytes(&mut arr[..]).context(RandomError)?;
+
+        Ok(NorganceRng { rng: Box::new(rng) })
     }
-
-    // 1024 CPRNG bits with a seed from crypto.getRandomBytes()
-    let mut arr = vec![0_u8; 1024];
-    rand::thread_rng()
-        .try_fill(&mut arr[..])
-        .context(RandomError)?;
-
-    // We combine that with the entropy from the client
-    // Using blake2b, because why not ?
-    // 256 bits / 32 bytes because it's the max without
-    // having to reimplement a rand::rng
-    let mut seed_hasher = Blake2b::new(32);
-    seed_hasher.update(entropy);
-    seed_hasher.update(&arr);
-
-    let seed: [u8; 32] = seed_hasher
-        .finalize()
-        .as_bytes()
-        .try_into()
-        .context(HashError)?;
-
-    let mut rng = StdRng::from_seed(seed);
-
-    // Consume 1024 bytes for no good reasons.
-    // Only to check that it works, and to make it
-    // a bit more difficult to guess the next bytes.
-    rng.try_fill_bytes(&mut arr[..]).context(RandomError)?;
-
-    Ok(NorganceRng { rng: Box::new(rng) })
 }
 
 #[wasm_bindgen]
 pub struct NorganceX448PrivateKey {
-    key: x448::Secret
+    key: x448::Secret,
+}
+
+#[wasm_bindgen]
+impl NorganceX448PrivateKey {
+    pub fn from_base64(private_key_base64: String) -> Result<NorganceX448PrivateKey> {
+        let bytes = match base64::decode(private_key_base64) {
+            Ok(bytes) => bytes,
+            Err(_) => return Err(NorganceError::InvalidX448PrivateKey.into()),
+        };
+
+        match x448::Secret::from_bytes(&bytes) {
+            Some(key) => Ok(NorganceX448PrivateKey { key }),
+            None => Err(NorganceError::InvalidX448PrivateKey.into()),
+        }
+    }
 }
 
 #[wasm_bindgen]
