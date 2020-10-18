@@ -1,17 +1,10 @@
-/* eslint-disable max-classes-per-file */
 import mem from 'mem';
 import PromiseWorker from './rustPromiseWorker';
-import RustClass from './rustClass';
 import entropy from '../entropy';
+import * as classes from './classes';
 
 const worker = new Worker('./rustWorker.js', { name: 'rustWorker', type: 'module' });
-const promiseWorker = new PromiseWorker(worker);
-
-export class ChatrouilleUnsignedQuery extends RustClass {}
-export class NorganceRng extends RustClass {}
-
-promiseWorker.registerClass(ChatrouilleUnsignedQuery);
-promiseWorker.registerClass(NorganceRng);
+const promiseWorker = new PromiseWorker(worker, classes);
 
 export const norganceIdentifier = mem((identifier) => promiseWorker.call(
   'norgance_identifier', {
@@ -52,6 +45,7 @@ export function chatrouillePackUnsignedQuery(payload, publicKey) {
       query: { functionName: 'get_query' },
       sharedSecret: { functionName: 'get_shared_secret' },
     },
+    returnClassName: 'ChatrouilleUnsignedQuery',
     freeResponseImmediately: true,
   });
 }
@@ -65,8 +59,12 @@ export function chatrouilleUnpackResponse(packedData, sharedSecret) {
 
 export function makeNorganceRng() {
   const entropyData = entropy().data;
-  // We don't transfer the data, we copy it
-  return promiseWorker.call('make_norgance_rng', { args: [entropyData] });
+  return promiseWorker.call('make_norgance_rng', {
+    args: [entropyData],
+    // We don't transfer the data, we copy it
+    transfer: [],
+    returnClassName: 'NorganceRng',
+  });
 }
 
 export function genX448PrivateKey(rng) {

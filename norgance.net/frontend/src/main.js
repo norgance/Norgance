@@ -6,6 +6,7 @@ import router from './router';
 import store from './store';
 import i18n, { formulateI18n } from './i18n';
 import entropy from './entropy';
+import * as rust from './rustyglue';
 
 Vue.config.productionTip = true; // false;
 
@@ -25,3 +26,4 @@ new Vue({
 
 window.entropy = entropy();
 window.entropy.start();
+window.rust = rust;

@@ -53,11 +53,11 @@ module.exports = {
       enableInSFC: true,
     },
   },
-  
+
   configureWebpack: {
     output: {
       chunkFilename: 'js/[name].[contenthash].js',
-      filename: '[name].[contenthash].js',
+      filename: '[name].[hash].js',
     },
   },
 

@@ -3,7 +3,13 @@
 let rust;
 self.addEventListener('message', async (event) => {
   const {
-    messageId, functionName, args, preload, className, freeResponseImmediately,
+    messageId,
+    functionName,
+    args,
+    preload,
+    className,
+    freeResponseImmediately,
+    returnClassName,
   } = event.data;
 
   if (typeof messageId === 'undefined') {
@@ -61,7 +67,7 @@ self.addEventListener('message', async (event) => {
     if (returnObject.ptr && returnObject.constructor) {
       const finalObject = {
         ptr: returnObject.ptr,
-        className: returnObject.constructor.name,
+        className: returnClassName,
       };
 
       if (preload) {

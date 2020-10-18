@@ -1,8 +1,8 @@
 export default class RustPromiseWorker {
-  constructor(worker) {
+  constructor(worker, classes) {
     this.worker = worker;
+    this.classes = classes;
     this.callbacks = new Map();
-    this.classes = new Map();
     this.currentMessageId = 0;
 
     worker.addEventListener('message', this.onMessage.bind(this));
@@ -24,16 +24,13 @@ export default class RustPromiseWorker {
     this.callbacks.delete(messageId);
   }
 
-  registerClass(classConstructor) {
-    this.classes.set(classConstructor.name, classConstructor);
-  }
-
   call(functionName, {
     args = [],
     transfer = undefined,
     preload = undefined,
     className = undefined,
     freeResponseImmediately = false,
+    returnClassName = undefined,
   }) {
     const messageId = this.currentMessageId;
     this.currentMessageId += 1;
@@ -51,6 +48,7 @@ export default class RustPromiseWorker {
       preload,
       className,
       freeResponseImmediately,
+      returnClassName,
     };
 
     return new Promise((resolve, reject) => {
@@ -61,7 +59,7 @@ export default class RustPromiseWorker {
         }
 
         if (response.ptr && response.className) {
-          const ClassConstructor = this.classes.get(response.className);
+          const ClassConstructor = this.classes[response.className];
           if (!ClassConstructor) {
             reject(new Error(`Unknown class ${response.className}`));
             return;

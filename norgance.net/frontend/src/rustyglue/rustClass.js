@@ -1,6 +1,8 @@
+/* eslint-disable no-underscore-dangle */
 export default class RustClass {
+  static className = 'RustClass';
+
   constructor(flatSource, promiseWorker) {
-    this.className = this.constructor.name;
     this.promiseWorker = promiseWorker;
     Object.assign(this, flatSource);
     if (!this.ptr) {
