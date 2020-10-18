@@ -41,7 +41,7 @@ self.addEventListener('message', async (event) => {
 
         // eslint-disable-next-line no-underscore-dangle
         const classInstance = classFunction.__wrap(ptr);
-        rustFunction = classInstance[functionName];
+        rustFunction = classInstance[functionName].bind(classInstance);
       }
     } else {
       rustFunction = rust[functionName];
@@ -69,7 +69,9 @@ self.addEventListener('message', async (event) => {
     let returnObject = rustFunction(...convertedArgs);
     let transferables;
 
-    if (returnObject.ptr && returnObject.constructor) {
+    // eslint-disable-next-line no-empty
+    if (!returnObject) {
+    } else if (returnObject.ptr && returnObject.constructor) {
       const finalObject = {
         ptr: returnObject.ptr,
         className: returnClassName,

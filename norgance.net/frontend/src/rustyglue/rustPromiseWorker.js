@@ -38,6 +38,7 @@ export default class RustPromiseWorker {
     freeResponseImmediately = false,
     returnClassName = undefined,
     staticFunction = false,
+    ptr = 0,
   }) {
     const messageId = this.currentMessageId;
     this.currentMessageId += 1;
@@ -57,6 +58,7 @@ export default class RustPromiseWorker {
       freeResponseImmediately,
       returnClassName,
       staticFunction,
+      ptr,
     };
 
     return new Promise((resolve, reject) => {
@@ -66,13 +68,13 @@ export default class RustPromiseWorker {
           return;
         }
 
-        if (response.ptr && response.className) {
+        if (response && response.ptr && response.className) {
           const ClassConstructor = this.classes[response.className];
           if (!ClassConstructor) {
             reject(new Error(`Unknown class ${response.className}`));
             return;
           }
-          resolve(new ClassConstructor(response));
+          resolve(new ClassConstructor(response, this));
           return;
         }
 
