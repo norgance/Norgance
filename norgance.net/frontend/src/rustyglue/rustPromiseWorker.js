@@ -49,10 +49,23 @@ export default class RustPromiseWorker {
       this.currentMessageId = 0;
     }
 
+    const convertedArgs = args.map((arg) => {
+      if (arg && arg.className) {
+        if (!arg.ptr) {
+          throw new Error(`No valid ptr for ${arg.className}`);
+        }
+        return {
+          ptr: arg.ptr,
+          className: arg.className,
+        };
+      }
+      return arg;
+    });
+
     const data = {
       messageId,
       functionName,
-      args,
+      args: convertedArgs,
       preload,
       className,
       freeResponseImmediately,

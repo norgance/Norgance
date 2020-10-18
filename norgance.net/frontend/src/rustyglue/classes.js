@@ -9,6 +9,7 @@ export class ChatrouilleUnsignedQuery extends RustClass {
   // Or disabling removing classnames.
   static className = 'ChatrouilleUnsignedQuery';
 }
+
 export class NorganceRng extends RustClass {
   static className = 'NorganceRng';
 
@@ -28,5 +29,15 @@ export class NorganceX448PrivateKey extends RustClass {
     return this._callStatic('from_base64', {
       args: [privateKeyBase64],
     });
+  }
+
+  static async fromRng(rng) {
+    return this._callStatic('from_rng', {
+      args: [rng],
+    });
+  }
+
+  async toBase64() {
+    return this._call('to_base64');
   }
 }

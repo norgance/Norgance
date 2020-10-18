@@ -14,6 +14,9 @@ export default class RustClass {
   }
 
   async _call(functionName, options) {
+    if (!this.ptr) {
+      throw new Error(`Invalid ptr for ${this.className}`);
+    }
     return this.promiseWorker.call(functionName, {
       className: this.className,
       ptr: this.ptr,
@@ -32,6 +35,7 @@ export default class RustClass {
   }
 
   async free() {
-    return this._call('free');
+    await this._call('free');
+    this.ptr = 0;
   }
 }

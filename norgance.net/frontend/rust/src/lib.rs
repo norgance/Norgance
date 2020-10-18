@@ -266,7 +266,7 @@ pub struct NorganceX448PrivateKey {
 
 #[wasm_bindgen]
 impl NorganceX448PrivateKey {
-    pub fn from_base64(private_key_base64: String) -> Result<NorganceX448PrivateKey> {
+    pub fn from_base64(private_key_base64: &str) -> Result<NorganceX448PrivateKey> {
         let bytes = match base64::decode(private_key_base64) {
             Ok(bytes) => bytes,
             Err(_) => return Err(NorganceError::InvalidX448PrivateKey.into()),
@@ -277,10 +277,15 @@ impl NorganceX448PrivateKey {
             None => Err(NorganceError::InvalidX448PrivateKey.into()),
         }
     }
+
+    pub fn from_rng(rng: &mut NorganceRng) -> NorganceX448PrivateKey {
+        let key = x448::Secret::new(&mut rng.rng);
+        NorganceX448PrivateKey { key }
+    }
+
+    #[must_use]
+    pub fn to_base64(&self) -> String {
+        base64::encode_config(self.key.as_bytes().to_vec(), base64::STANDARD_NO_PAD)
+    }
 }
 
-#[wasm_bindgen]
-pub fn gen_x448_private_key(rng: &mut NorganceRng) -> NorganceX448PrivateKey {
-    let key = x448::Secret::new(&mut rng.rng);
-    NorganceX448PrivateKey { key }
-}
