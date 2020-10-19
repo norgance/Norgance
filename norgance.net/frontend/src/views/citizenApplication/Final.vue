@@ -3,8 +3,11 @@
     <h2>{{ $t("finalTitle") }}</h2>
     <ul>
       <transition-group name="component-fade">
-        <li key="a" v-show="a">{{$t('canard')}}</li>
-        <li key="b" v-show="b">{{$t('canard')}}</li>
+        <li key="started" v-show="started">{{$t('started')}}</li>
+        <li key="accessKey" v-show="accessKey">{{$t('accessKey')}}</li>
+        <li key="symmetricKey" v-show="symmetricKey">{{$t('symmetricKey')}}</li>
+        <li key="asymmetricKeys" v-show="asymmetricKeys">{{$t('asymmetricKeys')}}</li>
+        <li key="done" v-show="done">{{$t('done')}}</li>
       </transition-group>
     </ul>
   </div>
@@ -15,17 +18,20 @@ import { mapState } from 'vuex';
 
 export default {
   name: 'CitizenApplicationFinal',
-  data() {
-    return {
-      a: false,
-      b: false,
-    };
+  computed: {
+    ...mapState('citizenApplication', [
+      'name',
+      'identifier',
+      'password',
+    ]),
+    ...mapState('citizenApplication/registerCitizenship', [
+      'started',
+      'accessKey',
+      'symmetricKey',
+      'asymmetricKeys',
+      'done',
+    ]),
   },
-  computed: mapState('citizenApplication', [
-    'name',
-    'identifier',
-    'password',
-  ]),
   async mounted() {
     if (!this.name) {
       this.$router.push({ name: 'CitizenApplicationNames' });
@@ -34,7 +40,7 @@ export default {
     } else if (!this.password) {
       this.$router.push({ name: 'CitizenApplicationPassword' });
     }
-    await this.$store.dispatch('citizenApplication/registerCitizenship');
+    await this.$store.dispatch('citizenApplication/registerCitizenship/register');
   },
 };
 </script>

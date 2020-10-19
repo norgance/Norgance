@@ -11,6 +11,8 @@ license = "CC0"
 crate-type = ["cdylib", "rlib"]
 
 [features]
+#default = ["console_error_panic_hook", "wee_alloc"]
+# wee_alloc doesn't make a huge difference
 default = ["console_error_panic_hook"]
 
 [dependencies]

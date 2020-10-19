@@ -1,5 +1,6 @@
 import { norganceIdentifier, norganceHibpPasswordHash } from '../rustyglue';
 import { anonymousGraphql } from '../chatrouille';
+import registerCitizenship from './registerCitizenship';
 
 const defaultState = {
   name: '',
@@ -14,6 +15,9 @@ const defaultState = {
 
 export default {
   namespaced: true,
+  modules: {
+    registerCitizenship,
+  },
   state: {
     ...defaultState,
   },
@@ -57,20 +61,7 @@ export default {
       commit('updateIdentifierHash', hash);
     },
 
-    async registerCitizenship({ state }) {
-      const identity = {
-        identifier: state.identifier,
-        name: state.name,
-      };
-      if (state.familyName) {
-        identity.familyName = state.familyName;
-      }
-      if (state.birthday) {
-        identity.birthday = state.birthday;
-      }
-      if (state.birthplace) {
-        identity.birthplace = state.birthplace;
-      }
+    /* async registerCitizenship({ state }) {
 
       const privateKeys = {
         x448: 'canard',
@@ -107,7 +98,7 @@ export default {
       });
       console.log(result);
       // commit('reset');
-    },
+    }, */
 
     async checkIdentifierAvailability({ commit, state }) {
       if (!state.identifierHash) {

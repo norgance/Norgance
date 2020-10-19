@@ -5,7 +5,7 @@ import * as classes from './classes';
 const worker = new Worker('./rustWorker.js', { name: 'rustWorker', type: 'module' });
 const promiseWorker = new PromiseWorker(worker, classes);
 
-export const lolclasses = classes;
+export const debugClasses = classes;
 
 export const norganceIdentifier = mem((identifier) => promiseWorker.call(
   'norgance_identifier', {

@@ -65,6 +65,7 @@ pub enum NorganceError {
     },
     NotEnoughEntropy,
     InvalidX448PrivateKey,
+    InvalidX448PublicKey,
 }
 
 impl From<NorganceError> for wasm_bindgen::JsValue {
@@ -74,6 +75,13 @@ impl From<NorganceError> for wasm_bindgen::JsValue {
 }
 
 pub type Result<T, E = JsValue> = std::result::Result<T, E>;
+
+fn argon2_hash_base64(data: &[u8], salt: &[u8], config: &argon2::Config) -> Result<String> {
+    match argon2::hash_raw(data, salt, config) {
+        Ok(hash) => Ok(base64::encode_config(hash, base64::STANDARD_NO_PAD)),
+        Err(_) => Err(NorganceError::Argon2.into()),
+    }
+}
 
 #[wasm_bindgen]
 pub fn norgance_identifier(identifier: &str) -> Result<String> {
@@ -95,13 +103,7 @@ pub fn norgance_identifier(identifier: &str) -> Result<String> {
         hash_length: 48, // 48 bytes, 64 bytes long encoded in base64
     };
 
-    let hash = match argon2::hash_raw(identifier.as_bytes(), NORGANCE_SALT, &ARGON2ID_SETTINGS) {
-        Ok(hash) => hash,
-        Err(_) => return Err(NorganceError::Argon2.into()),
-    };
-
-    let encoded = base64::encode_config(hash, base64::STANDARD_NO_PAD);
-    Ok(encoded)
+    argon2_hash_base64(identifier.as_bytes(), NORGANCE_SALT, &ARGON2ID_SETTINGS)
 }
 
 fn norgance_argon2id(identifier: &str, password: &str, mode: &[u8]) -> Result<String> {
@@ -117,11 +119,8 @@ fn norgance_argon2id(identifier: &str, password: &str, mode: &[u8]) -> Result<St
         hash_length: 32,
     };
     let salt = [identifier.as_bytes(), &[0x1E], NORGANCE_SALT, &[0x1E], mode].concat();
-
-    match argon2::hash_encoded(password.as_bytes(), &salt, &ARGON2ID_SETTINGS) {
-        Ok(hash) => Ok(hash),
-        Err(_) => Err(NorganceError::Argon2.into()),
-    }
+    
+    argon2_hash_base64(password.as_bytes(), &salt, &ARGON2ID_SETTINGS)
 }
 
 #[wasm_bindgen]
@@ -287,5 +286,35 @@ impl NorganceX448PrivateKey {
     pub fn to_base64(&self) -> String {
         base64::encode_config(self.key.as_bytes().to_vec(), base64::STANDARD_NO_PAD)
     }
+
+    #[must_use]
+    pub fn get_public_key(&self) -> NorganceX448PublicKey {
+        let key = x448::PublicKey::from(&self.key);
+        NorganceX448PublicKey { key }
+    }
 }
 
+#[wasm_bindgen]
+pub struct NorganceX448PublicKey {
+    key: x448::PublicKey,
+}
+
+#[wasm_bindgen]
+impl NorganceX448PublicKey {
+    pub fn from_base64(public_key_base64: &str) -> Result<NorganceX448PublicKey> {
+        let bytes = match base64::decode(public_key_base64) {
+            Ok(bytes) => bytes,
+            Err(_) => return Err(NorganceError::InvalidX448PublicKey.into()),
+        };
+
+        match x448::PublicKey::from_bytes(&bytes) {
+            Some(key) => Ok(NorganceX448PublicKey { key }),
+            None => Err(NorganceError::InvalidX448PublicKey.into()),
+        }
+    }
+
+    #[must_use]
+    pub fn to_base64(&self) -> String {
+        base64::encode_config(self.key.as_bytes().to_vec(), base64::STANDARD_NO_PAD)
+    }
+}

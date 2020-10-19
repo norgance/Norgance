@@ -40,4 +40,24 @@ export class NorganceX448PrivateKey extends RustClass {
   async toBase64() {
     return this._call('to_base64');
   }
+
+  async getPublicKey() {
+    return this._call('get_public_key', {
+      returnClassName: 'NorganceX448PublicKey',
+    });
+  }
+}
+
+export class NorganceX448PublicKey extends RustClass {
+  static className = 'NorganceX448PublicKey';
+
+  static async fromBase64(publicKeyBase64) {
+    return this._callStatic('from_base64', {
+      args: [publicKeyBase64],
+    });
+  }
+
+  async toBase64() {
+    return this._call('to_base64');
+  }
 }
