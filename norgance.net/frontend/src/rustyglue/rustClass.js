@@ -35,7 +35,9 @@ export default class RustClass {
   }
 
   async free() {
-    await this._call('free');
+    const promise = this._call('free');
+    // Immediately set ptr to 0 to prevent accidental multiple free
     this.ptr = 0;
+    await promise;
   }
 }

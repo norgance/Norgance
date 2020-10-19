@@ -19,6 +19,7 @@ default = ["console_error_panic_hook"]
 base64 = "0.13.0"
 blake2-rfc = "0.2.18"
 chatrouille = { version = "0.1.0", path = "../../chatrouille", features = ["wasm-bindgen"] }
+ed25519-dalek = "1.0.1"
 getrandom = { version = "0.2.0", features = ["js"] }
 hex = " 0.4.2"
 rust-argon2 = "0.8"
@@ -26,6 +27,7 @@ sha1 = "0.6.0"
 snafu = "0.6.9"
 uuid = "0.8.1"
 wasm-bindgen = "0.2.68"
+x25519-dalek = "1.1.0"
 x448 = "0.6.0"
 rand = "0.7.3"
 

@@ -66,6 +66,10 @@ pub enum NorganceError {
     NotEnoughEntropy,
     InvalidX448PrivateKey,
     InvalidX448PublicKey,
+    InvalidX25519DalekPrivateKey,
+    InvalidX25519DalekPublicKey,
+    InvalidEd25519DalekPrivateKey,
+    InvalidEd25519DalekPublicKey,
 }
 
 impl From<NorganceError> for wasm_bindgen::JsValue {
@@ -119,7 +123,6 @@ fn norgance_argon2id(identifier: &str, password: &str, mode: &[u8]) -> Result<St
         hash_length: 32,
     };
     let salt = [identifier.as_bytes(), &[0x1E], NORGANCE_SALT, &[0x1E], mode].concat();
-    
     argon2_hash_base64(password.as_bytes(), &salt, &ARGON2ID_SETTINGS)
 }
 
@@ -265,6 +268,11 @@ pub struct NorganceX448PrivateKey {
 
 #[wasm_bindgen]
 impl NorganceX448PrivateKey {
+    pub fn from_rng(rng: &mut NorganceRng) -> NorganceX448PrivateKey {
+        let key = x448::Secret::new(&mut rng.rng);
+        NorganceX448PrivateKey { key }
+    }
+
     pub fn from_base64(private_key_base64: &str) -> Result<NorganceX448PrivateKey> {
         let bytes = match base64::decode(private_key_base64) {
             Ok(bytes) => bytes,
@@ -275,11 +283,6 @@ impl NorganceX448PrivateKey {
             Some(key) => Ok(NorganceX448PrivateKey { key }),
             None => Err(NorganceError::InvalidX448PrivateKey.into()),
         }
-    }
-
-    pub fn from_rng(rng: &mut NorganceRng) -> NorganceX448PrivateKey {
-        let key = x448::Secret::new(&mut rng.rng);
-        NorganceX448PrivateKey { key }
     }
 
     #[must_use]
@@ -311,6 +314,142 @@ impl NorganceX448PublicKey {
             Some(key) => Ok(NorganceX448PublicKey { key }),
             None => Err(NorganceError::InvalidX448PublicKey.into()),
         }
+    }
+
+    #[must_use]
+    pub fn to_base64(&self) -> String {
+        base64::encode_config(self.key.as_bytes().to_vec(), base64::STANDARD_NO_PAD)
+    }
+}
+
+#[wasm_bindgen]
+pub struct NorganceX25519DalekPrivateKey {
+    key: x25519_dalek::StaticSecret,
+}
+
+#[wasm_bindgen]
+impl NorganceX25519DalekPrivateKey {
+    pub fn from_rng(rng: &mut NorganceRng) -> NorganceX25519DalekPrivateKey {
+        let key = x25519_dalek::StaticSecret::new(&mut rng.rng);
+        NorganceX25519DalekPrivateKey { key }
+    }
+
+    pub fn from_base64(private_key_base64: &str) -> Result<NorganceX25519DalekPrivateKey> {
+        use std::convert::TryInto;
+
+        let bytes = match base64::decode(private_key_base64) {
+            Ok(bytes) => bytes.into_boxed_slice(),
+            Err(_) => return Err(NorganceError::InvalidX25519DalekPrivateKey.into()),
+        };
+
+        let bytes: Box<[u8; 32]> = match bytes.try_into() {
+            Ok(bytes) => bytes,
+            Err(_) => return Err(NorganceError::InvalidX25519DalekPrivateKey.into()),
+        };
+
+        let key = x25519_dalek::StaticSecret::from(*bytes);
+        Ok(NorganceX25519DalekPrivateKey { key })
+    }
+
+    #[must_use]
+    pub fn to_base64(&self) -> String {
+        base64::encode_config(&self.key.to_bytes().to_vec(), base64::STANDARD_NO_PAD)
+    }
+
+    #[must_use]
+    pub fn get_public_key(&self) -> NorganceX25519DalekPublicKey {
+        let key = x25519_dalek::PublicKey::from(&self.key);
+        NorganceX25519DalekPublicKey { key }
+    }
+}
+
+#[wasm_bindgen]
+pub struct NorganceX25519DalekPublicKey {
+    key: x25519_dalek::PublicKey,
+}
+
+#[wasm_bindgen]
+impl NorganceX25519DalekPublicKey {
+    pub fn from_base64(public_key_base64: &str) -> Result<NorganceX25519DalekPublicKey> {
+        use std::convert::TryInto;
+
+        let bytes = match base64::decode(public_key_base64) {
+            Ok(bytes) => bytes.into_boxed_slice(),
+            Err(_) => return Err(NorganceError::InvalidX25519DalekPublicKey.into()),
+        };
+
+        let bytes: Box<[u8; 32]> = match bytes.try_into() {
+            Ok(bytes) => bytes,
+            Err(_) => return Err(NorganceError::InvalidX25519DalekPublicKey.into()),
+        };
+
+        let key = x25519_dalek::PublicKey::from(*bytes);
+        Ok(NorganceX25519DalekPublicKey { key })
+    }
+
+    #[must_use]
+    pub fn to_base64(&self) -> String {
+        base64::encode_config(self.key.as_bytes().to_vec(), base64::STANDARD_NO_PAD)
+    }
+}
+
+#[wasm_bindgen]
+pub struct NorganceEd25519DalekPrivateKey {
+    key: ed25519_dalek::SecretKey,
+}
+
+#[wasm_bindgen]
+impl NorganceEd25519DalekPrivateKey {
+    pub fn from_rng(rng: &mut NorganceRng) -> NorganceEd25519DalekPrivateKey {
+        let key = ed25519_dalek::SecretKey::generate(&mut rng.rng);
+        NorganceEd25519DalekPrivateKey { key }
+    }
+
+    pub fn from_base64(private_key_base64: &str) -> Result<NorganceEd25519DalekPrivateKey> {
+        let bytes = match base64::decode(private_key_base64) {
+            Ok(bytes) => bytes.into_boxed_slice(),
+            Err(_) => return Err(NorganceError::InvalidEd25519DalekPrivateKey.into()),
+        };
+
+        let key = match ed25519_dalek::SecretKey::from_bytes(&bytes) {
+            Ok(key) => key,
+            Err(_) => return Err(NorganceError::InvalidEd25519DalekPrivateKey.into()),
+        };
+
+        Ok(NorganceEd25519DalekPrivateKey { key })
+    }
+
+    #[must_use]
+    pub fn to_base64(&self) -> String {
+        base64::encode_config(&self.key.to_bytes().to_vec(), base64::STANDARD_NO_PAD)
+    }
+
+    #[must_use]
+    pub fn get_public_key(&self) -> NorganceEd25519DalekPublicKey {
+        let key = ed25519_dalek::PublicKey::from(&self.key);
+        NorganceEd25519DalekPublicKey { key }
+    }
+}
+
+#[wasm_bindgen]
+pub struct NorganceEd25519DalekPublicKey {
+    key: ed25519_dalek::PublicKey,
+}
+
+#[wasm_bindgen]
+impl NorganceEd25519DalekPublicKey {
+    pub fn from_base64(public_key_base64: &str) -> Result<NorganceEd25519DalekPublicKey> {
+        let bytes = match base64::decode(public_key_base64) {
+            Ok(bytes) => bytes.into_boxed_slice(),
+            Err(_) => return Err(NorganceError::InvalidEd25519DalekPublicKey.into()),
+        };
+
+        let key = match ed25519_dalek::PublicKey::from_bytes(&bytes) {
+            Ok(key) => key,
+            Err(_) => return Err(NorganceError::InvalidEd25519DalekPublicKey.into()),
+        };
+
+        Ok(NorganceEd25519DalekPublicKey { key })
     }
 
     #[must_use]

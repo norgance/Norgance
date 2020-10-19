@@ -25,15 +25,15 @@ export class NorganceRng extends RustClass {
 export class NorganceX448PrivateKey extends RustClass {
   static className = 'NorganceX448PrivateKey';
 
-  static async fromBase64(privateKeyBase64) {
-    return this._callStatic('from_base64', {
-      args: [privateKeyBase64],
-    });
-  }
-
   static async fromRng(rng) {
     return this._callStatic('from_rng', {
       args: [rng],
+    });
+  }
+
+  static async fromBase64(privateKeyBase64) {
+    return this._callStatic('from_base64', {
+      args: [privateKeyBase64],
     });
   }
 
@@ -50,6 +50,86 @@ export class NorganceX448PrivateKey extends RustClass {
 
 export class NorganceX448PublicKey extends RustClass {
   static className = 'NorganceX448PublicKey';
+
+  static async fromBase64(publicKeyBase64) {
+    return this._callStatic('from_base64', {
+      args: [publicKeyBase64],
+    });
+  }
+
+  async toBase64() {
+    return this._call('to_base64');
+  }
+}
+
+export class NorganceX25519DalekPrivateKey extends RustClass {
+  static className = 'NorganceX25519DalekPrivateKey';
+
+  static async fromRng(rng) {
+    return this._callStatic('from_rng', {
+      args: [rng],
+    });
+  }
+
+  static async fromBase64(privateKeyBase64) {
+    return this._callStatic('from_base64', {
+      args: [privateKeyBase64],
+    });
+  }
+
+  async toBase64() {
+    return this._call('to_base64');
+  }
+
+  async getPublicKey() {
+    return this._call('get_public_key', {
+      returnClassName: 'NorganceX25519DalekPublicKey',
+    });
+  }
+}
+
+export class NorganceX25519DalekPublicKey extends RustClass {
+  static className = 'NorganceX25519DalekPublicKey';
+
+  static async fromBase64(publicKeyBase64) {
+    return this._callStatic('from_base64', {
+      args: [publicKeyBase64],
+    });
+  }
+
+  async toBase64() {
+    return this._call('to_base64');
+  }
+}
+
+export class NorganceEd25519DalekPrivateKey extends RustClass {
+  static className = 'NorganceEd25519DalekPrivateKey';
+
+  static async fromRng(rng) {
+    return this._callStatic('from_rng', {
+      args: [rng],
+    });
+  }
+
+  static async fromBase64(privateKeyBase64) {
+    return this._callStatic('from_base64', {
+      args: [privateKeyBase64],
+    });
+  }
+
+  async toBase64() {
+    return this._call('to_base64');
+  }
+
+  async getPublicKey() {
+    return this._call('get_public_key', {
+      returnClassName: 'NorganceEd25519DalekPublicKey',
+    });
+  }
+}
+
+export class NorganceEd25519DalekPublicKey extends RustClass {
+  static className = 'NorganceEd25519DalekPublicKey';
 
   static async fromBase64(publicKeyBase64) {
     return this._callStatic('from_base64', {

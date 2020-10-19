@@ -345,6 +345,7 @@ dependencies = [
  "blake2-rfc",
  "chatrouille",
  "console_error_panic_hook",
+ "ed25519-dalek",
  "getrandom 0.2.0",
  "hex",
  "rand",
@@ -356,6 +357,7 @@ dependencies = [
  "wasm-bindgen-test",
  "web-sys",
  "wee_alloc",
+ "x25519-dalek",
  "x448",
 ]
 
