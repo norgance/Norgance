@@ -195,7 +195,7 @@ pub async fn chatrouille(
     };
 
     #[allow(clippy::unwrap_used)]
-    let public_key = match db::load_citizen_public_ed25519_dalek(
+    let public_key = match db::load_citizen_access_key(
       &db_connection,
       &citizen_identifier.clone().unwrap(),
     ) {
@@ -330,24 +330,23 @@ mod tests {
       .collect()
   }
 
-  fn create_test_citizen_in_db(db: &db::DbPooledConnection) -> (String, ed25519_dalek::Keypair) {
+  fn create_test_citizen_in_db(db: &db::DbPooledConnection) -> (String, ed25519_dalek::Keypair, ed25519_dalek::Keypair) {
     use crate::db::models::{Citizen, NewCitizen};
 
     let identifier = random_string(64);
-    let access_key = random_string(64);
+    let access_keypair = key_utils::gen_ed25519_keypair();
     let keypair_ed25519 = key_utils::gen_ed25519_keypair();
     let private_x25519 = key_utils::gen_x25519_static_secret();
     let public_x25519 = x25519_dalek::PublicKey::from(&private_x25519);
-    let private_x448 = key_utils::gen_private_key();
-    let public_x448 = key_utils::gen_public_key(&private_x448);
 
     let private_secret_key = orion::aead::SecretKey::generate(32).unwrap();
     let aead_data = orion::aead::seal(&private_secret_key, b"secret").unwrap();
 
     let new_citizen = NewCitizen {
       identifier: &identifier,
-      access_key: &access_key,
-      public_x448: &base64::encode_config(public_x448.as_bytes(), base64::STANDARD_NO_PAD),
+      access_key: &base64::encode_config(
+        access_keypair.public.as_bytes(),
+        base64::STANDARD_NO_PAD),
       public_x25519_dalek: &base64::encode_config(
         public_x25519.as_bytes(),
         base64::STANDARD_NO_PAD,
@@ -368,7 +367,7 @@ mod tests {
         .unwrap();
     }
 
-    (identifier, keypair_ed25519)
+    (identifier, access_keypair, keypair_ed25519)
   }
 
   #[test]
@@ -447,7 +446,7 @@ mod tests {
           "variables": {
             "identifier": "abcdef"
           },
-          "query": "query loadCitizenPublicKey($identifier: String!) { loadCitizenPublicKeys(identifier: $identifier) { publicX448 publicX25519Dalek publicEd25519Dalek }}"
+          "query": "query loadCitizenPublicKey($identifier: String!) { loadCitizenPublicKeys(identifier: $identifier) { publicX25519Dalek publicEd25519Dalek }}"
         }
       }))
       .unwrap(),
@@ -500,7 +499,7 @@ mod tests {
     let (private_key, public_key, root_node, db_pool) = setup_chatrouille();
 
     let db = db_pool.get().expect("Database connection failed");
-    let (identifier, keypair) = create_test_citizen_in_db(&db);
+    let (identifier, access_keypair, keypair) = create_test_citizen_in_db(&db);
 
     let (query, shared_secret) = chatrouille::pack_signed_query(
       &serde_json::to_vec(&json!({
@@ -515,7 +514,7 @@ mod tests {
       }))
       .unwrap(),
       &public_key,
-      &keypair,
+      &access_keypair,
     )
     .unwrap();
     let request = Request::builder().body(Body::from(query)).unwrap();

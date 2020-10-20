@@ -2,7 +2,6 @@ table! {
     citizens (identifier) {
         identifier -> Text,
         access_key -> Text,
-        public_x448 -> Text,
         public_x25519_dalek -> Text,
         public_ed25519_dalek -> Text,
         aead_data -> Text,

@@ -4,7 +4,6 @@ use super::schema::citizens;
 pub struct Citizen {
     pub identifier: String,
     pub access_key: String,
-    pub public_x448: String,
     pub public_x25519_dalek: String,
     pub public_ed25519_dalek: String,
     pub aead_data: String,
@@ -12,7 +11,6 @@ pub struct Citizen {
 
 #[derive(diesel::Queryable)]
 pub struct CitizenPublicKeys {
-    pub public_x448: String,
     pub public_x25519_dalek: String,
     pub public_ed25519_dalek: String,
 }
@@ -22,7 +20,6 @@ pub struct CitizenPublicKeys {
 pub struct NewCitizen<'a> {
     pub identifier: &'a str,
     pub access_key: &'a str,
-    pub public_x448: &'a str,
     pub public_x25519_dalek: &'a str,
     pub public_ed25519_dalek: &'a str,
     pub aead_data: &'a str,

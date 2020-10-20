@@ -82,17 +82,12 @@ pub fn is_identifier_available(db: &DbPooledConnection, input_identifier: &str) 
 pub fn load_citizen_personal_data(
   db: &DbPooledConnection,
   input_identifier: &str,
-  input_access_key: &str,
 ) -> Result<Option<String>> {
   use diesel::prelude::*;
   use schema::citizens::dsl::*;
 
   let query = citizens
-    .filter(
-      identifier
-        .eq(input_identifier)
-        .and(access_key.eq(input_access_key)),
-    )
+    .filter(identifier.eq(input_identifier))
     .select(aead_data)
     .limit(1);
 
@@ -112,7 +107,7 @@ pub fn load_citizen_public_keys(
 
   let result = citizens
     .filter(identifier.eq(input_identifier))
-    .select((public_x448, public_x25519_dalek, public_ed25519_dalek))
+    .select((public_x25519_dalek, public_ed25519_dalek))
     .limit(1)
     .load::<models::CitizenPublicKeys>(db)
     .context(QueryError)?
@@ -121,7 +116,7 @@ pub fn load_citizen_public_keys(
   Ok(result)
 }
 
-pub fn load_citizen_public_ed25519_dalek(
+pub fn load_citizen_access_key(
   db: &DbPooledConnection,
   input_identifier: &str,
 ) -> Result<Option<ed25519_dalek::PublicKey>> {
@@ -130,7 +125,7 @@ pub fn load_citizen_public_ed25519_dalek(
 
   let result = citizens
     .filter(identifier.eq(input_identifier))
-    .select(public_ed25519_dalek)
+    .select(access_key)
     .limit(1)
     .load::<String>(db)
     .context(QueryError)?
