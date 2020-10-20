@@ -135,7 +135,8 @@ const MINIMUM_QUERY_DATA_LENGTH: usize =
   PACKET_VERSION_LENGTH + MODE_LENGTH + CLIENT_PUBLIC_KEY_LENGTH + NOUNCE_LENGTH + TAG_LENGTH;
 const MINIMUM_RESPONSE_DATA_LENGTH: usize =
   PACKET_VERSION_LENGTH + MODE_LENGTH + NOUNCE_LENGTH + TAG_LENGTH;
-const SIGNATURE_BLAKE2B_HASH_SIZE: usize = 64;
+const SIGNATURE_BLAKE2B_HASH_LENGTH: usize = 64;
+const SIGNATURE_NOUNCE_LENGTH: usize = 32;
 // Salt for the signature - French revolution - https://en.wikipedia.org/wiki/Nothing-up-my-sleeve_number
 const SIGNATURE_BLAKE2B_HASH_SALT: &[u8; 16] = b"chatrouille-1789";
 
@@ -148,6 +149,7 @@ pub struct UnpackedQuery {
 
 pub struct UnpackedQuerySignature {
   query_hash: Vec<u8>,
+  nounce: Vec<u8>,
   signature: ed25519_dalek::Signature,
 }
 
@@ -214,9 +216,12 @@ fn pack(
   shared_secret: &x448::SharedSecret,
   client_keypair: Option<&ed25519_dalek::Keypair>,
 ) -> Result<Vec<u8>> {
+  use rand::RngCore;
+
   let mode_byte = mode.clone() as u8;
 
   let mut signature_bytes = Vec::with_capacity(0);
+  let mut signature_nounce_bytes = Vec::with_capacity(0);
   if mode == Mode::SignedQuery {
     use blake2_rfc::blake2b::blake2b;
     use ed25519_dalek::Signer;
@@ -231,14 +236,18 @@ fn pack(
     // when we want to verify the signature later.
     // The whole thing is also a Rube Goldberg machine.
     let packet_hash = blake2b(
-      SIGNATURE_BLAKE2B_HASH_SIZE,
+      SIGNATURE_BLAKE2B_HASH_LENGTH,
       SIGNATURE_BLAKE2B_HASH_SALT,
       &data,
     );
 
-    let packet_hash_bytes = packet_hash.as_bytes();
-    let signature = keypair.sign(packet_hash_bytes);
+    let mut signature_nounce = [0_u8; SIGNATURE_NOUNCE_LENGTH];
+    rand::thread_rng().fill_bytes(&mut signature_nounce);
+
+    let bytes_to_sign = [&signature_nounce, packet_hash.as_bytes()].concat();
+    let signature = keypair.sign(&bytes_to_sign);
     signature_bytes = signature.to_bytes().to_vec();
+    signature_nounce_bytes = signature_nounce.to_vec();
   }
 
   let mut compressed = compressor::compress(&data).context(CompressionError)?;
@@ -254,6 +263,8 @@ fn pack(
     .context(KeyDerivationError)?;
   let payload = if mode == Mode::SignedQuery {
     let mut compressed_and_signed = compressed;
+    compressed_and_signed.reserve(SIGNATURE_LENGTH + SIGNATURE_NOUNCE_LENGTH);
+    compressed_and_signed.append(&mut signature_nounce_bytes);
     compressed_and_signed.append(&mut signature_bytes);
     compressed_and_signed
   } else {
@@ -325,13 +336,18 @@ pub fn unpack_query(packed_data: &[u8], private_key: &x448::Secret) -> Result<Un
     use std::convert::TryFrom;
 
     let decrypted_length = decrypted_bytes.len();
+    if decrypted_length < SIGNATURE_LENGTH + NOUNCE_LENGTH {
+      return Err(ChatrouilleError::NotEnoughData);
+    }
+
+    let signature_nounce_bytes = &decrypted_bytes[decrypted_length-SIGNATURE_LENGTH-SIGNATURE_NOUNCE_LENGTH..decrypted_length-SIGNATURE_LENGTH];
     let signature_bytes = &decrypted_bytes[decrypted_length - SIGNATURE_LENGTH..decrypted_length];
     let signature = Signature::try_from(signature_bytes).context(SignatureError)?;
     let compressed_data = &decrypted_bytes[0..decrypted_length - SIGNATURE_LENGTH];
     let raw_data = compressor::decompress(&compressed_data).context(UncompressionError)?;
 
     let packet_hash = blake2b(
-      SIGNATURE_BLAKE2B_HASH_SIZE,
+      SIGNATURE_BLAKE2B_HASH_LENGTH,
       SIGNATURE_BLAKE2B_HASH_SALT,
       &raw_data,
     );
@@ -341,6 +357,7 @@ pub fn unpack_query(packed_data: &[u8], private_key: &x448::Secret) -> Result<Un
       shared_secret,
       signature: Some(UnpackedQuerySignature {
         query_hash: packet_hash.as_bytes().to_vec(),
+        nounce: signature_nounce_bytes.to_vec(),
         signature,
       }),
     });
@@ -383,8 +400,9 @@ pub fn unpack_response(packed_data: &[u8], shared_secret: &x448::SharedSecret) -
 
 impl VerifyUnpackedQuerySignature for UnpackedQuerySignature {
   fn verify(&self, public_key: &ed25519_dalek::PublicKey) -> Result<()> {
+    let bytes_to_verify = [&self.nounce[..], &self.query_hash[..]].concat();
     public_key
-      .verify_strict(&self.query_hash, &self.signature)
+      .verify_strict(&bytes_to_verify, &self.signature)
       .context(VerifySignatureError)?;
     Ok(())
   }
