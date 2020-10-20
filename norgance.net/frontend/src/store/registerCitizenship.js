@@ -25,10 +25,14 @@ export default {
     progress(state, step) {
       Vue.set(state, step, true);
     },
+    reset(state) {
+      Object.assign(state, defaultState);
+    },
   },
 
   actions: {
     async register({ commit, rootState }) {
+      commit('reset');
       commit('progress', 'started');
 
       const application = rootState.citizenApplication;

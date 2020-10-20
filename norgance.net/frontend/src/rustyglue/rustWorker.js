@@ -41,15 +41,20 @@ self.addEventListener('message', async (event) => {
 
         // eslint-disable-next-line no-underscore-dangle
         const classInstance = classFunction.__wrap(ptr);
-        rustFunction = classInstance[functionName].bind(classInstance);
+        rustFunction = classInstance[functionName];
+        
+        if (typeof rustFunction !== 'function') {
+          throw new TypeError(`Unknown function ${functionName} for class ${className}`);
+        }
+        rustFunction = rustFunction.bind(classInstance);
       }
     } else {
       rustFunction = rust[functionName];
+      if (typeof rustFunction !== 'function') {
+        throw new TypeError(`Unknown function ${functionName}`);
+      }
     }
 
-    if (typeof rustFunction !== 'function') {
-      throw new TypeError(`Unknown function ${functionName}`);
-    }
 
     const convertedArgs = args.map((arg) => {
       if (arg && arg.className) {

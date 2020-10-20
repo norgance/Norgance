@@ -348,6 +348,7 @@ dependencies = [
  "ed25519-dalek",
  "getrandom 0.2.0",
  "hex",
+ "orion",
  "rand",
  "rust-argon2",
  "sha1",
@@ -369,11 +370,11 @@ checksum = "624a8340c38c1b80fd549087862da4ba43e08858af025b236e509b6649fc13d5"
 
 [[package]]
 name = "orion"
-version = "0.15.4"
+version = "0.15.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "30fdaf24c767f0665fd92fab8669d678907a1e48209ca56e8edd3ca409db00dc"
+checksum = "1066cd107e316d26fe9f8657525afc01ed74b3288126ee7e58b5b141916aab09"
 dependencies = [
- "base64 0.12.3",
+ "base64 0.13.0",
  "getrandom 0.2.0",
  "subtle",
  "zeroize",

@@ -1,10 +1,7 @@
 import ky from 'ky';
 
 import entropy from './entropy';
-import {
-  chatrouillePackUnsignedQuery,
-  chatrouilleUnpackResponse,
-} from './rustyglue';
+import { Chatrouille } from './rustyglue/rustyChatrouille';
 
 const publicKey = Uint8Array.from([
   62,
@@ -82,21 +79,39 @@ if (!CHATROUILLE_DEBUG_MODE) {
   console.info('Run enableChatrouilleDebug() to see the network exchanges.');
 }
 
+let instance;
+let instanceBuildingPromise;
+async function buildChatrouilleInstance() {
+  instance = await Chatrouille.withPublicKey(publicKey);
+  instanceBuildingPromise = undefined;
+}
+instanceBuildingPromise = buildChatrouilleInstance();
+
 export async function anonymousGraphql(graphql) {
   if (CHATROUILLE_DEBUG_MODE) {
     console.info('Chatrouille query', graphql);
   }
+
+  if (instanceBuildingPromise) {
+    await instanceBuildingPromise;
+  }
+
   const entropyInstance = entropy();
   entropyInstance.ping(); // Ping before processing
   const payload = JSON.stringify({ graphql });
-  const { query, sharedSecret } = await chatrouillePackUnsignedQuery(payload, publicKey);
-  entropyInstance.ping(); // Ping after processing
-  const response = await ky.post('http://localhost:3000/chatrouille', {
-    body: query,
-  });
-  entropyInstance.ping(); // Ping after response
-  const responseBody = await response.arrayBuffer();
-  const decoded = await chatrouilleUnpackResponse(new Uint8Array(responseBody), sharedSecret);
+  const query = await instance.packUnsignedQuery(payload);
+  let decoded;
+  try {
+    entropyInstance.ping(); // Ping after processing
+    const response = await ky.post('http://localhost:3000/chatrouille', {
+      body: query.query,
+    });
+    entropyInstance.ping(); // Ping after response
+    const responseBody = await response.arrayBuffer();
+    decoded = await Chatrouille.unpackResponse(new Uint8Array(responseBody), query);
+  } finally {
+    query.free();
+  }
   const jsonResponse = JSON.parse(decoded);
   entropyInstance.ping(); // Ping after response processing
   if (CHATROUILLE_DEBUG_MODE) {

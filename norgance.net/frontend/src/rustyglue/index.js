@@ -14,6 +14,7 @@ export const norganceIdentifier = mem((identifier) => promiseWorker.call(
   },
 ));
 
+// TODO memory leaks with mem and rust ?
 export const norganceCitizenSymmetricKey = mem(
   (identifier, password) => promiseWorker.call('norgance_citizen_symmetric_key', {
     args:
@@ -38,25 +39,6 @@ export const norganceHibpPasswordHash = mem((password, size = 20) => promiseWork
 }), {
   cacheKey: JSON.stringify,
 });
-
-export function chatrouillePackUnsignedQuery(payload, publicKey) {
-  return promiseWorker.call('chatrouille_pack_unsigned_query', {
-    args: [payload, publicKey],
-    preload: {
-      query: { functionName: 'get_query' },
-      sharedSecret: { functionName: 'get_shared_secret' },
-    },
-    returnClassName: 'ChatrouilleUnsignedQuery',
-    freeResponseImmediately: true,
-  });
-}
-
-export function chatrouilleUnpackResponse(packedData, sharedSecret) {
-  return promiseWorker.call('chatrouille_unpack_response', {
-    args: [packedData, sharedSecret],
-    transfer: [packedData.buffer, sharedSecret.buffer],
-  });
-}
 
 export function genX448PrivateKey(rng) {
   return promiseWorker.call('gen_x448_private_key', { args: [rng] });

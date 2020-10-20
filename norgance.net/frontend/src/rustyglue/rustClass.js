@@ -1,5 +1,9 @@
 /* eslint-disable no-underscore-dangle */
 export default class RustClass {
+  // The classnames are removed by the minifier
+  // So we explicitly specify it.
+  // We could also have a whitelist in the minifier
+  // Or disabling removing classnames.
   static className = 'RustClass';
 
   // Must be defined

@@ -50,7 +50,7 @@ export default {
         identifier: 'p32JCE3v2HUUAm1Dq9iJbn3nyDs5JNnnG6wIifwb7zl6tZcH2Cjy7JUKdZbCutlJ',
       },
       query:
-            'query loadCitizenPublicKey($identifier: String!) { loadCitizenPublicKeys(identifier: $identifier) { publicX448 publicX25519Dalek publicEd25519Dalek }}',
+            'query loadCitizenPublicKey($identifier: String!) { loadCitizenPublicKeys(identifier: $identifier) { publicX25519Dalek publicEd25519Dalek }}',
     });
     console.log(lapin);
 
