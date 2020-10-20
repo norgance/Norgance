@@ -114,6 +114,15 @@ impl From<u8> for Mode {
   }
 }
 
+impl Mode {
+  // https://en.wikipedia.org/wiki/Nothing-up-my-sleeve_number
+  // Fahrenheit 451, Babar, Asterix
+  fn to_symmetric_key_salt(&self) -> Vec<u8> {
+    let first_byte = self.clone() as u8;
+    [first_byte, 4, 5, 1, 66, 97, 98, 97, 114, 97, 115, 116, 101, 114, 105, 120].to_vec()
+  }
+}
+
 #[allow(clippy::non_ascii_literal)]
 const PACKET_VERSION: &[u8] = "🦆".as_bytes();
 const PACKET_VERSION_LENGTH: usize = PACKET_VERSION.len();
@@ -241,7 +250,7 @@ fn pack(
     compressed.append(&mut vec![0; 32 - diff_with_32]);
   }
 
-  let symmetric_key = key_utils::derive_shared_secret_to_sym_key(shared_secret, &[mode_byte])
+  let symmetric_key = key_utils::derive_shared_secret_to_sym_key(shared_secret, &mode.to_symmetric_key_salt())
     .context(KeyDerivationError)?;
   let payload = if mode == Mode::SignedQuery {
     let mut compressed_and_signed = compressed;
@@ -303,8 +312,7 @@ pub fn unpack_query(packed_data: &[u8], private_key: &x448::Secret) -> Result<Un
     None => return Err(ChatrouilleError::DiffieHellmanFail),
   };
 
-  let mode_byte = mode.clone() as u8;
-  let symmetric_key = key_utils::derive_shared_secret_to_sym_key(&shared_secret, &[mode_byte])
+  let symmetric_key = key_utils::derive_shared_secret_to_sym_key(&shared_secret, &mode.to_symmetric_key_salt())
     .context(KeyDerivationError)?;
 
   let aead_bytes =
@@ -362,8 +370,7 @@ pub fn unpack_response(packed_data: &[u8], shared_secret: &x448::SharedSecret) -
     return Err(ChatrouilleError::InvalidModeInData);
   }
 
-  let mode_byte = mode as u8;
-  let symmetric_key = key_utils::derive_shared_secret_to_sym_key(&shared_secret, &[mode_byte])
+  let symmetric_key = key_utils::derive_shared_secret_to_sym_key(&shared_secret, &mode.to_symmetric_key_salt())
     .context(KeyDerivationError)?;
 
   let aead_bytes = &packed_data[PACKET_VERSION_LENGTH + MODE_LENGTH..data_length];
