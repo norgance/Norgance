@@ -18,6 +18,11 @@ async fn shutdown_signal() {
         .expect("failed to install CTRL+C signal handler");
 }
 
+fn private_key_to_public_key_base64(private_key: &x448::Secret) -> String {
+    let public_key = x448::PublicKey::from(private_key);
+    base64::encode_config(public_key.as_bytes(), base64::STANDARD_NO_PAD)
+}
+
 pub async fn server_main(
     addr: SocketAddr,
     arc_db_pool: Arc<db::DbPool>,
@@ -27,12 +32,16 @@ pub async fn server_main(
     let root_node = graphql::new_root_node();
     let authentication_bearer = authentication_bearer.clone();
     let server_private_key = server_private_key.clone();
+    let server_public_key = Arc::new(private_key_to_public_key_base64(&server_private_key));
+    //let canard = x448::PublicKey::from(&prout);
+    //let server_public_key : Arc<x448::PublicKey> = Arc::new(x448::PublicKey::from(server_private_key));
 
     let new_service = make_service_fn(move |_| {
         let root_node = root_node.clone();
         let arc_db_pool = arc_db_pool.clone();
         let authentication_bearer = authentication_bearer.clone();
         let server_private_key = server_private_key.clone();
+        let server_public_key = server_public_key.clone();
 
         async {
             Ok::<_, hyper::Error>(service_fn(move |req| {
@@ -41,14 +50,15 @@ pub async fn server_main(
                 #[allow(unused_variables)] // It's used in development mode
                 let authentication_bearer = authentication_bearer.clone();
                 let server_private_key = server_private_key.clone();
+                let server_public_key = server_public_key.clone();
 
                 async move {
                     match (req.method(), req.uri().path()) {
                         (&Method::POST, "/chatrouille") => {
                             handlers::chatrouille(req, server_private_key, root_node, arc_db_pool).await
                         }
-                        (&Method::GET, "/chatrouille_public_key") => {
-                            handlers::chatrouille_public_key()
+                        (&Method::GET, "/chatrouille_informations") => {
+                            handlers::chatrouille_informations(&server_public_key)
                         }
                         (&Method::GET, "/health") => handlers::health(arc_db_pool),
                         #[cfg(feature = "development")]

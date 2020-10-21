@@ -297,14 +297,14 @@ pub async fn chatrouille(
   )
 }
 
-pub fn chatrouille_public_key() -> ResultHandler {
+pub fn chatrouille_informations(public_key: &str) -> ResultHandler {
   let time = match get_timestamp() {
     Ok(t) => t,
     Err(response) => return Ok(response),
   };
 
   Ok(json_ok(&json!({
-          "public_key": "abc",
+          "public_key": public_key,
           "signature": "efg",
           "time": time,
   })))
