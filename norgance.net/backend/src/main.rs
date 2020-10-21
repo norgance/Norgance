@@ -67,8 +67,8 @@ async fn main() {
     //let addr = ([127, 0, 0, 1], 3000).into();
     let addr = ([0, 0, 0, 0], 3000).into();
 
-    let vault_client = vault::make_client().expect("Make vault client");
-    let server_private_key = vault::get_private_key(&vault_client).expect("Unable to get private key");
+    let mut vault_client = vault::Client::from_env().await.expect("Vault client error");
+    let server_private_key = vault_client.load_server_private_key().await.expect("Unable to load server private key");
 
     let authentication_bearer =
         env::var("AUTHENTICATION_BEARER").unwrap_or_else(|_| String::from("development-bearer"));

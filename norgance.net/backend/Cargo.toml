@@ -15,13 +15,13 @@ diesel = { version = "1.4.5", features = ["postgres","r2d2"] }
 diesel_migrations = "1.4.0"
 ed25519-dalek = "1.0.1"
 futures = "0.3.6"
-hashicorp_vault = "1.1.0"
 hyper = "0.13.8"
 juniper = { git = "https://github.com/graphql-rust/juniper" }
 juniper_hyper = { git = "https://github.com/graphql-rust/juniper" }
 lazy_static = "1.4.0"
 lenient_bool = "0.1.1"
 orion = "0.15.5"
+percent-encoding = "2.1.0"
 pretty_env_logger = "0.4.0"
 r2d2 = "0.8.9"
 rand = "0.7.3"
