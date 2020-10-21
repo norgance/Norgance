@@ -15,6 +15,7 @@ diesel = { version = "1.4.5", features = ["postgres","r2d2"] }
 diesel_migrations = "1.4.0"
 ed25519-dalek = "1.0.1"
 futures = "0.3.6"
+hashicorp_vault = "1.1.0"
 hyper = "0.13.8"
 juniper = { git = "https://github.com/graphql-rust/juniper" }
 juniper_hyper = { git = "https://github.com/graphql-rust/juniper" }

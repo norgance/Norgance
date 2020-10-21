@@ -1,7 +1,6 @@
 use diesel::r2d2::ConnectionManager;
 use diesel::PgConnection;
 
-//use snafu::{ensure, Backtrace, ErrorCompat, ResultExt, Snafu};
 use snafu::{ResultExt, Snafu};
 
 pub mod models;

@@ -23,6 +23,7 @@
 mod db;
 mod server;
 mod validation;
+mod vault;
 
 #[macro_use]
 extern crate diesel_migrations;
@@ -66,23 +67,17 @@ async fn main() {
     //let addr = ([127, 0, 0, 1], 3000).into();
     let addr = ([0, 0, 0, 0], 3000).into();
 
-    // This is obviously only for test
-    let bob_secret = x448::Secret::from_bytes(&[
-        0x1c, 0x30, 0x6a, 0x7a, 0xc2, 0xa0, 0xe2, 0xe0, 0x99, 0xb, 0x29, 0x44, 0x70, 0xcb, 0xa3,
-        0x39, 0xe6, 0x45, 0x37, 0x72, 0xb0, 0x75, 0x81, 0x1d, 0x8f, 0xad, 0xd, 0x1d, 0x69, 0x27,
-        0xc1, 0x20, 0xbb, 0x5e, 0xe8, 0x97, 0x2b, 0xd, 0x3e, 0x21, 0x37, 0x4c, 0x9c, 0x92, 0x1b,
-        0x9, 0xd1, 0xb0, 0x36, 0x6f, 0x10, 0xb6, 0x51, 0x73, 0x99, 0x2d,
-    ])
-    .expect("Unwrap bob secret");
+    let vault_client = vault::make_client().expect("Make vault client");
+    let server_private_key = vault::get_private_key(&vault_client).expect("Unable to get private key");
 
     let authentication_bearer =
-        env::var("AUTHENTICATION_BEARER").unwrap_or_else(|_| String::from("canard"));
+        env::var("AUTHENTICATION_BEARER").unwrap_or_else(|_| String::from("development-bearer"));
 
     server::server_main(
         addr,
         Arc::new(db_pool),
         Cow::from(authentication_bearer),
-        Arc::new(bob_secret),
+        Arc::new(server_private_key),
     )
     .await;
 }
