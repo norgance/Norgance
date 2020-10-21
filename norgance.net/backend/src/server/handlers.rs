@@ -26,13 +26,22 @@ where
   #[serde(rename = "citizenIdentifier")]
   //#[serde(bound(deserialize = "juniper::InputValue<S>: serde::Deserialize<'de> + serde::Serialize"))]
   citizen_identifier: Option<String>,
+
+  #[serde(rename = "exp")]
+  expiration_time: u64,
 }
+
+#[cfg(feature = "development")]
+const ACCESS_CONTROL_ORIGIN: &str = "*";
+#[cfg(not(feature = "development"))]
+const ACCESS_CONTROL_ORIGIN: &str = "https://norgance.net";
 
 #[allow(clippy::expect_used)]
 pub fn json_response(json: &serde_json::value::Value, status: StatusCode) -> Response<Body> {
   Response::builder()
     .status(status)
     .header(hyper::header::CONTENT_TYPE, "application/json")
+    .header("Access-Control-Allow-Origin", ACCESS_CONTROL_ORIGIN)
     .body(Body::from(
       serde_json::to_vec(&json).expect("Unable to serialize json"),
     ))
@@ -77,8 +86,26 @@ async fn read_request_body(
     .await
 }
 
+fn get_timestamp() -> Result<u64, Response<Body>> {
+  let server_time =
+    match std::time::SystemTime::now().duration_since(std::time::SystemTime::UNIX_EPOCH) {
+      Ok(t) => t,
+      Err(_) => {
+        return Err(json_response(
+          &json!({
+            "error": "Unable to get server time"
+          }),
+          StatusCode::INTERNAL_SERVER_ERROR,
+        ));
+      }
+    };
+  let server_timestamp = server_time.as_secs();
+  Ok(server_timestamp)
+}
+
 type ResultHandler = Result<Response<Body>, hyper::Error>;
 
+#[allow(dead_code)]
 pub async fn graphql(
   req: Request<Body>,
   root_node: Arc<graphql::Schema>,
@@ -167,6 +194,20 @@ pub async fn chatrouille(
         return Ok(json_error(x, StatusCode::BAD_REQUEST));
       }
     };
+
+  let server_timestamp = match get_timestamp() {
+    Ok(t) => t,
+    Err(response) => return Ok(response),
+  };
+  if graphql_request.expiration_time < server_timestamp {
+    return Ok(json_response(
+      &json!({
+        "error": "The request has expired"
+      }),
+      StatusCode::GONE,
+    ));
+  }
+
   let citizen_identifier = graphql_request.citizen_identifier;
 
   if citizen_identifier.is_some() {
@@ -195,25 +236,23 @@ pub async fn chatrouille(
     };
 
     #[allow(clippy::unwrap_used)]
-    let public_key = match db::load_citizen_access_key(
-      &db_connection,
-      &citizen_identifier.clone().unwrap(),
-    ) {
-      Ok(public_key) => match public_key {
-        Some(public_key) => public_key,
-        None => {
-          return Ok(json_response(
-            &json!({
-              "error": "Unauthorized citizen identifier"
-            }),
-            StatusCode::FORBIDDEN,
-          ));
+    let public_key =
+      match db::load_citizen_access_key(&db_connection, &citizen_identifier.clone().unwrap()) {
+        Ok(public_key) => match public_key {
+          Some(public_key) => public_key,
+          None => {
+            return Ok(json_response(
+              &json!({
+                "error": "Unauthorized citizen identifier"
+              }),
+              StatusCode::FORBIDDEN,
+            ));
+          }
+        },
+        Err(x) => {
+          return Ok(json_error(x, StatusCode::INTERNAL_SERVER_ERROR));
         }
-      },
-      Err(x) => {
-        return Ok(json_error(x, StatusCode::INTERNAL_SERVER_ERROR));
-      }
-    };
+      };
 
     if signature.verify(&public_key).is_err() {
       return Ok(json_response(
@@ -233,16 +272,6 @@ pub async fn chatrouille(
     .graphql
     .execute(&*root_node, &context_for_query)
     .await;
-
-  if !graphql_response.is_ok() {
-    return Ok(json_response(
-      &json!({
-        "error": "bad request"
-      }),
-      StatusCode::BAD_REQUEST,
-    ));
-  }
-
   let response_payload = match serde_json::to_vec(&graphql_response) {
     Ok(response_payload) => response_payload,
     Err(x) => {
@@ -262,15 +291,22 @@ pub async fn chatrouille(
     Response::builder()
       .status(StatusCode::OK)
       .header(hyper::header::CONTENT_TYPE, "application/octet-stream")
+      .header("Access-Control-Allow-Origin", ACCESS_CONTROL_ORIGIN)
       .body(Body::from(encrypted_response))
       .expect("Unable to build response"),
   )
 }
 
 pub fn chatrouille_public_key() -> ResultHandler {
+  let time = match get_timestamp() {
+    Ok(t) => t,
+    Err(response) => return Ok(response),
+  };
+
   Ok(json_ok(&json!({
           "public_key": "abc",
-          "signature": "efg"
+          "signature": "efg",
+          "time": time,
   })))
 }
 
@@ -330,7 +366,9 @@ mod tests {
       .collect()
   }
 
-  fn create_test_citizen_in_db(db: &db::DbPooledConnection) -> (String, ed25519_dalek::Keypair, ed25519_dalek::Keypair) {
+  fn create_test_citizen_in_db(
+    db: &db::DbPooledConnection,
+  ) -> (String, ed25519_dalek::Keypair, ed25519_dalek::Keypair) {
     use crate::db::models::{Citizen, NewCitizen};
 
     let identifier = random_string(64);
@@ -344,9 +382,7 @@ mod tests {
 
     let new_citizen = NewCitizen {
       identifier: &identifier,
-      access_key: &base64::encode_config(
-        access_keypair.public.as_bytes(),
-        base64::STANDARD_NO_PAD),
+      access_key: &base64::encode_config(access_keypair.public.as_bytes(), base64::STANDARD_NO_PAD),
       public_x25519_dalek: &base64::encode_config(
         public_x25519.as_bytes(),
         base64::STANDARD_NO_PAD,
@@ -438,6 +474,7 @@ mod tests {
   #[test]
   fn test_chatrouille_valid_unsigned() {
     let (private_key, public_key, root_node, db_pool) = setup_chatrouille();
+    let timestamp = get_timestamp().unwrap();
 
     let (query, shared_secret) = chatrouille::pack_unsigned_query(
       &serde_json::to_vec(&json!({
@@ -447,7 +484,8 @@ mod tests {
             "identifier": "abcdef"
           },
           "query": "query loadCitizenPublicKey($identifier: String!) { loadCitizenPublicKeys(identifier: $identifier) { publicX25519Dalek publicEd25519Dalek }}"
-        }
+        },
+        "exp": timestamp+60,
       }))
       .unwrap(),
       &public_key,
@@ -472,6 +510,7 @@ mod tests {
   #[test]
   fn test_chatrouille_unvalid_unsigned() {
     let (private_key, public_key, root_node, db_pool) = setup_chatrouille();
+    let timestamp = get_timestamp().unwrap();
 
     let (query, _) = chatrouille::pack_unsigned_query(
       &serde_json::to_vec(&json!({
@@ -480,9 +519,10 @@ mod tests {
           "variables": {
             "identifier": "abcdef"
           },
-          "query": "query loadCitizenPublicKey($identifier: String!) { loadCitizenPublicKeys(identifier: $identifier) { publicX448 publicX25519Dalek publicEd25519Dalek }}"
+          "query": "query loadCitizenPublicKey($identifier: String!) { loadCitizenPublicKeys(identifier: $identifier) { publicX25519Dalek publicEd25519Dalek }}"
         },
-        "citizenIdentifier": "canard"
+        "citizenIdentifier": "canard",
+        "exp": timestamp+60,
       }))
       .unwrap(),
       &public_key,
@@ -495,11 +535,38 @@ mod tests {
     assert!(body_contains(response, "signed"));
   }
   #[test]
+  fn test_chatrouille_unvalid_expired() {
+    let (private_key, public_key, root_node, db_pool) = setup_chatrouille();
+    let timestamp = get_timestamp().unwrap();
+
+    let (query, _) = chatrouille::pack_unsigned_query(
+      &serde_json::to_vec(&json!({
+        "graphql": {
+          "operationName": "loadCitizenPublicKey",
+          "variables": {
+            "identifier": "abcdef"
+          },
+          "query": "query loadCitizenPublicKey($identifier: String!) { loadCitizenPublicKeys(identifier: $identifier) { publicX25519Dalek publicEd25519Dalek }}"
+        },
+        "exp": timestamp-60,
+      }))
+      .unwrap(),
+      &public_key,
+    )
+    .unwrap();
+
+    let request = Request::builder().body(Body::from(query)).unwrap();
+    let response = block_on(chatrouille(request, private_key, root_node, db_pool)).unwrap();
+    assert_eq!(response.status(), StatusCode::GONE);
+    assert!(body_contains(response, "expired"));
+  }
+  #[test]
   fn test_chatrouille_valid_signed() {
     let (private_key, public_key, root_node, db_pool) = setup_chatrouille();
 
     let db = db_pool.get().expect("Database connection failed");
     let (identifier, access_keypair, keypair) = create_test_citizen_in_db(&db);
+    let timestamp = get_timestamp().unwrap();
 
     let (query, shared_secret) = chatrouille::pack_signed_query(
       &serde_json::to_vec(&json!({
@@ -510,7 +577,8 @@ mod tests {
           },
           "query": "query loadCitizenPublicKey($identifier: String!) { loadCitizenPublicKeys(identifier: $identifier) { publicEd25519Dalek }}"
         },
-        "citizenIdentifier": identifier
+        "citizenIdentifier": identifier,
+        "exp": timestamp + 60,
       }))
       .unwrap(),
       &public_key,
@@ -525,13 +593,11 @@ mod tests {
     let response = chatrouille::unpack_response(&encrypted_body, &shared_secret).unwrap();
 
     let response_text = std::str::from_utf8(&response).unwrap();
-    let ed25519_dalek_base64 = &base64::encode_config(
-      keypair.public.as_bytes(),
-      base64::STANDARD_NO_PAD,
-    );
+    let ed25519_dalek_base64 =
+      &base64::encode_config(keypair.public.as_bytes(), base64::STANDARD_NO_PAD);
 
     assert_eq!(
-     response_text,
+      response_text,
       serde_json::to_string(&json!({
         "data": {
           "loadCitizenPublicKeys" : {
