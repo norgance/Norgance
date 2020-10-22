@@ -65,12 +65,16 @@ async fn main() {
         .await
         .expect("Unable to load server private key");
 
+    #[cfg(feature = "development")]
     let authentication_bearer =
         env::var("AUTHENTICATION_BEARER").unwrap_or_else(|_| String::from("development-bearer"));
 
     server::server_main(
         addr,
-        server::ServerData::new(db_pool, authentication_bearer, server_private_key),
+        server::ServerData::new(db_pool,
+            #[cfg(feature = "development")]
+            authentication_bearer,
+            server_private_key),
     )
     .await;
 }

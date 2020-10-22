@@ -24,6 +24,7 @@ fn private_key_to_public_key_base64(private_key: &x448::Secret) -> String {
 
 pub struct ServerData {
     db_pool: Arc<db::DbPool>,
+    #[cfg(feature = "development")]
     authentication_bearer: Arc<String>,
     private_key_x448: Arc<x448::Secret>,
     public_key_x448_base64: Arc<String>,
@@ -33,12 +34,14 @@ pub struct ServerData {
 impl ServerData {
     pub fn new(
         db_pool: db::DbPool,
+        #[cfg(feature = "development")]
         authentication_bearer: String,
         private_key_x448: x448::Secret,
     ) -> ServerData {
         let public_key_x448_base64 = private_key_to_public_key_base64(&private_key_x448);
         ServerData {
             db_pool: Arc::new(db_pool),
+            #[cfg(feature = "development")]
             authentication_bearer: Arc::new(authentication_bearer),
             private_key_x448: Arc::new(private_key_x448),
             public_key_x448_base64: Arc::new(public_key_x448_base64),
@@ -64,16 +67,16 @@ pub async fn server_main(addr: SocketAddr, data: ServerData) {
                         (&Method::POST, "/chatrouille") => {
                             handlers::chatrouille(
                                 req,
-                                Arc::clone(&data.private_key_x448),
                                 root_node,
                                 Arc::clone(&data.db_pool),
+                                Arc::clone(&data.private_key_x448),
                             )
                             .await
                         }
                         (&Method::GET, "/chatrouille_informations") => {
                             handlers::chatrouille_informations(&data.public_key_x448_base64)
                         }
-                        (&Method::GET, "/health") => handlers::health(Arc::clone(&data.db_pool)),
+                        (&Method::GET, "/health") => handlers::health(&data.db_pool),
                         #[cfg(feature = "development")]
                         (&Method::GET, "/graphql") | (&Method::POST, "/graphql") => {
                             handlers::graphql(

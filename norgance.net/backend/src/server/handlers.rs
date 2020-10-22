@@ -142,8 +142,8 @@ pub async fn graphql(
 }
 
 #[allow(clippy::needless_pass_by_value)]
-pub fn health(arc_db_pool: Arc<db::DbPool>) -> ResultHandler {
-  let ok = match arc_db_pool.get() {
+pub fn health(db_pool: &db::DbPool) -> ResultHandler {
+  let ok = match db_pool.get() {
     Ok(db) => db::health_check(&db).is_ok(),
     Err(_) => false,
   };
@@ -163,9 +163,9 @@ pub fn not_found() -> ResultHandler {
 #[allow(clippy::too_many_lines)]
 pub async fn chatrouille(
   req: Request<Body>,
-  private_key: Arc<x448::Secret>,
   root_node: Arc<graphql::Schema>,
   arc_db_pool: Arc<db::DbPool>,
+  private_key: Arc<x448::Secret>,
 ) -> ResultHandler {
   use chatrouille::VerifyUnpackedQuerySignature;
   let (body, body_too_long) = read_request_body(req, 4200).await?;
@@ -411,7 +411,7 @@ mod tests {
 
     // Empty
     let request = Request::builder().body(Body::empty()).unwrap();
-    let response = block_on(chatrouille(request, private_key, root_node, db_pool)).unwrap();
+    let response = block_on(chatrouille(request, root_node, db_pool, private_key)).unwrap();
     assert_eq!(response.status(), StatusCode::UNPROCESSABLE_ENTITY);
     assert!(body_contains(response, "too small"));
   }
@@ -431,7 +431,7 @@ mod tests {
     let request = Request::builder()
       .body(Body::from(random_data.to_vec()))
       .unwrap();
-    let response = block_on(chatrouille(request, private_key, root_node, db_pool)).unwrap();
+    let response = block_on(chatrouille(request, root_node, db_pool, private_key)).unwrap();
     assert_eq!(response.status(), StatusCode::UNPROCESSABLE_ENTITY);
     assert!(body_contains(response, "prefix is invalid"));
   }
@@ -447,7 +447,7 @@ mod tests {
 
     let request = Request::builder().body(Body::from(query.0)).unwrap();
 
-    let response = block_on(chatrouille(request, private_key, root_node, db_pool)).unwrap();
+    let response = block_on(chatrouille(request, root_node, db_pool, private_key)).unwrap();
     assert_eq!(response.status(), StatusCode::UNPROCESSABLE_ENTITY);
     assert!(body_contains(response, "Unable to decrypt"));
   }
@@ -465,7 +465,7 @@ mod tests {
     )
     .unwrap();
     let request = Request::builder().body(Body::from(query.0)).unwrap();
-    let response = block_on(chatrouille(request, private_key, root_node, db_pool)).unwrap();
+    let response = block_on(chatrouille(request, root_node, db_pool, private_key)).unwrap();
     assert_eq!(response.status(), StatusCode::BAD_REQUEST);
     assert!(body_contains(response, "missing field"));
   }
@@ -492,7 +492,7 @@ mod tests {
     .unwrap();
     let request = Request::builder().body(Body::from(query)).unwrap();
     let encrypted_response =
-      block_on(chatrouille(request, private_key, root_node, db_pool)).unwrap();
+      block_on(chatrouille(request, root_node, db_pool, private_key)).unwrap();
     assert_eq!(encrypted_response.status(), StatusCode::OK);
     let encrypted_body = read_response_body(encrypted_response);
     let response = chatrouille::unpack_response(&encrypted_body, &shared_secret).unwrap();
@@ -529,7 +529,7 @@ mod tests {
     .unwrap();
 
     let request = Request::builder().body(Body::from(query)).unwrap();
-    let response = block_on(chatrouille(request, private_key, root_node, db_pool)).unwrap();
+    let response = block_on(chatrouille(request, root_node, db_pool, private_key)).unwrap();
     assert_eq!(response.status(), StatusCode::FORBIDDEN);
     assert!(body_contains(response, "signed"));
   }
@@ -555,7 +555,7 @@ mod tests {
     .unwrap();
 
     let request = Request::builder().body(Body::from(query)).unwrap();
-    let response = block_on(chatrouille(request, private_key, root_node, db_pool)).unwrap();
+    let response = block_on(chatrouille(request, root_node, db_pool, private_key)).unwrap();
     assert_eq!(response.status(), StatusCode::GONE);
     assert!(body_contains(response, "expired"));
   }
@@ -586,7 +586,7 @@ mod tests {
     .unwrap();
     let request = Request::builder().body(Body::from(query)).unwrap();
     let encrypted_response =
-      block_on(chatrouille(request, private_key, root_node, db_pool)).unwrap();
+      block_on(chatrouille(request, root_node, db_pool, private_key)).unwrap();
     assert_eq!(encrypted_response.status(), StatusCode::OK);
     let encrypted_body = read_response_body(encrypted_response);
     let response = chatrouille::unpack_response(&encrypted_body, &shared_secret).unwrap();
