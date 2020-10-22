@@ -6,7 +6,6 @@ extern crate futures;
 use hyper::{Body, Request, Response, StatusCode};
 use serde_json::json;
 use snafu::Snafu;
-use std::borrow::Cow;
 use std::sync::Arc;
 
 #[derive(Debug, Snafu)]
@@ -110,13 +109,13 @@ pub async fn graphql(
   req: Request<Body>,
   root_node: Arc<graphql::Schema>,
   arc_db_pool: Arc<db::DbPool>,
-  authentication_bearer: Cow<'static, str>,
+  authentication_bearer: Arc<String>,
 ) -> ResultHandler {
   let headers = req.headers();
 
   if !match headers.get("authentication") {
     Some(h) => match h.to_str() {
-      Ok(h) => h == authentication_bearer,
+      Ok(h) => h == authentication_bearer.as_str(),
       Err(_) => false,
     },
     None => false,
@@ -135,7 +134,7 @@ pub async fn graphql(
   };
 
   let context_for_query = Arc::new(graphql::Ctx {
-    db_pool: arc_db_pool.clone(),
+    db_pool: Arc::clone(&arc_db_pool),
     citizen_identifier,
   });
 
@@ -265,7 +264,7 @@ pub async fn chatrouille(
   }
 
   let context_for_query = graphql::Ctx {
-    db_pool: arc_db_pool.clone(),
+    db_pool: Arc::clone(&arc_db_pool),
     citizen_identifier,
   };
   let graphql_response = graphql_request

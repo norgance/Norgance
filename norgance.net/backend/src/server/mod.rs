@@ -1,8 +1,7 @@
+mod check_password_quality;
 mod graphql;
 mod handlers;
-mod check_password_quality;
 
-use std::borrow::Cow;
 use std::net::SocketAddr;
 use std::sync::Arc;
 
@@ -23,48 +22,67 @@ fn private_key_to_public_key_base64(private_key: &x448::Secret) -> String {
     base64::encode_config(public_key.as_bytes(), base64::STANDARD_NO_PAD)
 }
 
-pub async fn server_main(
-    addr: SocketAddr,
-    arc_db_pool: Arc<db::DbPool>,
-    authentication_bearer: Cow<'static, str>,
-    server_private_key: Arc<x448::Secret>,
-) {
+pub struct ServerData {
+    db_pool: Arc<db::DbPool>,
+    authentication_bearer: Arc<String>,
+    private_key_x448: Arc<x448::Secret>,
+    public_key_x448_base64: Arc<String>,
+    // private_key_ed25519: Arc<ed25519_dalek::SecretKey>,
+}
+
+impl ServerData {
+    pub fn new(
+        db_pool: db::DbPool,
+        authentication_bearer: String,
+        private_key_x448: x448::Secret,
+    ) -> ServerData {
+        let public_key_x448_base64 = private_key_to_public_key_base64(&private_key_x448);
+        ServerData {
+            db_pool: Arc::new(db_pool),
+            authentication_bearer: Arc::new(authentication_bearer),
+            private_key_x448: Arc::new(private_key_x448),
+            public_key_x448_base64: Arc::new(public_key_x448_base64),
+        }
+    }
+}
+
+pub async fn server_main(addr: SocketAddr, data: ServerData) {
     let root_node = graphql::new_root_node();
-    let authentication_bearer = authentication_bearer.clone();
-    let server_private_key = server_private_key.clone();
-    let server_public_key = Arc::new(private_key_to_public_key_base64(&server_private_key));
-    //let canard = x448::PublicKey::from(&prout);
-    //let server_public_key : Arc<x448::PublicKey> = Arc::new(x448::PublicKey::from(server_private_key));
+    let data = Arc::new(data);
 
     let new_service = make_service_fn(move |_| {
-        let root_node = root_node.clone();
-        let arc_db_pool = arc_db_pool.clone();
-        let authentication_bearer = authentication_bearer.clone();
-        let server_private_key = server_private_key.clone();
-        let server_public_key = server_public_key.clone();
+        let root_node = Arc::clone(&root_node);
+        let data = Arc::clone(&data);
 
         async {
             Ok::<_, hyper::Error>(service_fn(move |req| {
-                let root_node = root_node.clone();
-                let arc_db_pool = arc_db_pool.clone();
-                #[allow(unused_variables)] // It's used in development mode
-                let authentication_bearer = authentication_bearer.clone();
-                let server_private_key = server_private_key.clone();
-                let server_public_key = server_public_key.clone();
+                let root_node = Arc::clone(&root_node);
+                let data = Arc::clone(&data);
 
                 async move {
                     match (req.method(), req.uri().path()) {
                         (&Method::POST, "/chatrouille") => {
-                            handlers::chatrouille(req, server_private_key, root_node, arc_db_pool).await
+                            handlers::chatrouille(
+                                req,
+                                Arc::clone(&data.private_key_x448),
+                                root_node,
+                                Arc::clone(&data.db_pool),
+                            )
+                            .await
                         }
                         (&Method::GET, "/chatrouille_informations") => {
-                            handlers::chatrouille_informations(&server_public_key)
+                            handlers::chatrouille_informations(&data.public_key_x448_base64)
                         }
-                        (&Method::GET, "/health") => handlers::health(arc_db_pool),
+                        (&Method::GET, "/health") => handlers::health(Arc::clone(&data.db_pool)),
                         #[cfg(feature = "development")]
                         (&Method::GET, "/graphql") | (&Method::POST, "/graphql") => {
-                            handlers::graphql(req, root_node, arc_db_pool, authentication_bearer)
-                                .await
+                            handlers::graphql(
+                                req,
+                                root_node,
+                                Arc::clone(&data.db_pool),
+                                Arc::clone(&data.authentication_bearer),
+                            )
+                            .await
                         }
                         #[cfg(feature = "development")]
                         (&Method::GET, "/") => juniper_hyper::playground("/graphql", None).await,
