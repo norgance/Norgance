@@ -34,12 +34,14 @@ As you understand, there is no perfect solution today. The current solution work
 
 ## How to validate the signature ?
 
-The Norgance public key ID is `EF5DE21DE501CDE1` and it is hosted on `hkps://keyserver.ubuntu.com`.
+The Norgance public key ID is `EF5DE21DE501CDE1` and it is hosted on `hkps://keyserver.ubuntu.com` or `keys.gnupg.net`.
 
 You can use the following commands to verify the digital signature of a Norgance webpage.
 
 ```sh
 gpg --keyserver hkps://keyserver.ubuntu.com --receive-keys EF5DE21DE501CDE1
+# or 
+gpg --keyserver keys.gnupg.net --receive-keys EF5DE21DE501CDE1
 curl https://norgance.com/ | gpg --verify
 curl https://norgance.com/pgp/ | gpg --verify
 ```

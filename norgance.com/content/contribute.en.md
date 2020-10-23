@@ -13,7 +13,7 @@ You can browse the [Norgance source code](https://github.com/norgance/Norgance) 
 * Report issues
 * Suggest changes
 * Add or improve translations
-* Improe the documentation
+* Improve the documentation
 * Fix spelling mistakes 
 * Add or improve features
 * Maintain the codebase
@@ -21,7 +21,7 @@ You can browse the [Norgance source code](https://github.com/norgance/Norgance) 
 
 ### Remuneration
 
-At this stage of the project, Norgance has no money in any currency. This mean that you cannot be remunerated for your work, but you can contribute as a volunteer. Your work will be greatly appreciated.
+You currently cannot be remunerated for your work, but you can contribute as a volunteer. Your work will be greatly appreciated.
 
 ### License
 

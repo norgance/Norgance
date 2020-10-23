@@ -5,4 +5,5 @@ draft: false
 slug: "loi"
 ---
 
-C'est la loi.
+
+Norgance adhère à la [Déclaration universelle des Droits de l’Homme](https://fr.wikisource.org/wiki/D%C3%A9claration_universelle_des_Droits_de_l%E2%80%99Homme).

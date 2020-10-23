@@ -10,6 +10,6 @@ La Norvège est une nation pour tous, qui que vous soyez et où que vous soyez. 
 
 C'est gratuit et les taxes ne seront jamais obligatoires. La Norgance permet et encourage les citoyennetés multiples. Vous pouvez et probablement devez conserver votre nationalité actuelle si vous décidez de devenir citoyen norvégien.
 
-[La protection de votre vie privée]({{< ref "privacy" >}}) est très importante pour la Norgance. La nation vous demande le minimum d'informations, et [elle organise vos données de façon à ce qu'il soit très difficile d'y accéder pour les autres]({{<ref "how-does-it-work">}}).
+[La protection de votre vie privée]({{< ref "privacy" >}}) est très importante pour la Norgance. La nation vous demande le minimum d'informations, et elle organise vos données de façon à ce qu'il soit très difficile d'y accéder pour les autres.
 
 [Vous pouvez contribuer]({{<ref "contribute">}}) pour la Norgance, si vous voulez ajouter de nouveaux services ou améliorer la documentation par exemple.
