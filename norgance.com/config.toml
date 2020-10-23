@@ -45,6 +45,11 @@ unsafe = true
   cookiesOk = "Accept"
   cookiesBad = "Refuses"
 
+[markup]
+  [markup.highlight]
+    guessSyntax = true
+    noClasses = false
+
 [languages]
   [languages.en]
     weight = 1

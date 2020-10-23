@@ -1,0 +1,20 @@
+{{ define "main" }}
+<section class="blog-header">
+      <hgroup>
+            {{ with .Title }}<h2>{{ . }}</h2>{{ end }}
+            {{ with .Site.GetPage "blog" }}<h4><a href="{{ .Permalink }}">{{ .Title }}</a></h4>{{end}}
+      </hgroup>
+</section>
+<article>
+      {{- .Content -}}
+</article>
+{{ with .Date}}
+<section class="blog-footer">
+      <p class="date">
+            {{ partial "date.html" (dict "date" . "language" $.Page.Language "months_fr" $.Site.Data.months_fr) }}</p>
+      {{ end }}
+      {{ with $.Params.author }}
+      <p class="author">{{ . }}</p>
+      {{ end }}
+</section>
+{{ end }}

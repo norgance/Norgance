@@ -1,0 +1,26 @@
+{{ define "main" }}
+
+{{ with .Title }}<h2>{{ . }}</h2>{{ end }}
+
+<section>
+  {{ .Content }}
+</section>
+
+<section>
+  <table class="blog-list">
+    <tbody>
+      {{ range .Paginator.Pages }}
+      <tr>
+        <td class="date">{{ partial "date.html" (dict "date" .Date "language" $.Page.Language "months_fr" $.Site.Data.months_fr) }}
+        </td>
+        <td class="title"><a href="{{ .Permalink }}">
+            {{ .Title }}
+          </a></td>
+      </tr>
+      {{ end }}
+    </tbody>
+  </table>
+  {{ template "_internal/pagination.html" . }}
+</section>
+
+{{ end }}

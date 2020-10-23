@@ -5,3 +5,6 @@ draft: false
 ---
 
 Norgance is a project made by various contributors.
+
+[We have a blog]({{<ref "blog">}}).
+[You can also contact us]({{<ref "contact">}}).

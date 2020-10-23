@@ -7,6 +7,9 @@ $linkColour: #002868;
 @import "./header";
 @import "./content";
 @import "./footer";
+@import "./blog";
+
+@import "../css/syntax";
 
 a {
   text-decoration: underline;
@@ -31,4 +34,8 @@ body {
   main {
     flex-grow: 1;
   }
+}
+
+hr {
+  border-top-color: #bdbdbd;
 }
