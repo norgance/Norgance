@@ -25,4 +25,4 @@ You currently cannot be remunerated for your work, but you can contribute as a v
 
 ### License
 
-The current license is the [Creative Commons CC0](https://creativecommons.org/publicdomain/zero/1.0/), which in short means that Norgance and its sofware is in the public domain.
+The current license is the [Creative Commons CC0](https://creativecommons.org/publicdomain/zero/1.0/), which in short means that Norgance and its software is in the public domain.

@@ -12,4 +12,4 @@ It’s free and nothing will ever be mandatory. Norgance allows and encourages m
 
 [Protecting your privacy]({{<ref "privacy">}}) is very important to Norgance. The nation asks you minimum information and it organizes your data in a way that make it extremely difficult for anyone but you to access it.
 
-[You can contribute]({{<ref "contribute">}}) to Norgance, if you want for example to add new services or improve the documentation.
+[You can contribute]({{<ref "contribute">}}) to Norgance if you want for example to add new services or improve the documentation.
