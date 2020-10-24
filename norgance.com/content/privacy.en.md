@@ -10,7 +10,7 @@ Protecting your privacy is extremely important and Norgance is designed to prote
 
 Some information must be shared with others, such as your spouse when you want to marry, but only you decide what to share, when, and to whom.
 
-Norgance respects your privacy and does not have any interest to track you, as it is contradictory to the country intentions.
+Norgance respects your privacy and does not have any interest to track you, as it is contradictory to the nation intentions.
 
 The source code is available for anyone to audit. This may require some technical expertise, but you can ask an expert in privacy and cryptography to do it.
 

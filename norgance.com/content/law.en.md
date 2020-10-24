@@ -6,4 +6,4 @@ draft: false
 
 Norgance adheres to the [Universal Declaration of Human Rights](https://en.wikisource.org/wiki/Universal_Declaration_of_Human_Rights).
 
-Norgance will establish its laws step by step whenever needed.
+Norgance will establish its laws step by step.
