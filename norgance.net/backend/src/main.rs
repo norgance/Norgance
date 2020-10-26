@@ -68,11 +68,11 @@ async fn main() {
     //let addr = ([127, 0, 0, 1], 3000).into();
     let addr = ([0, 0, 0, 0], 3000).into();
 
-    let mut vault_client = vault::Client::from_env().await.expect("Vault client error");
-    let server_private_key = vault_client
-        .load_server_private_key()
+    let vault_client = vault::Client::from_env().await.expect("Vault client error");
+    let server_secrets = vault_client
+        .load_server_secrets()
         .await
-        .expect("Unable to load server private key");
+        .expect("Unable to load server secrets");
 
     #[cfg(feature = "development")]
     let authentication_bearer =
@@ -83,7 +83,9 @@ async fn main() {
         server::ServerData::new(db_pool,
             #[cfg(feature = "development")]
             authentication_bearer,
-            server_private_key),
+            server_secrets.x448_private_key,
+            server_secrets.ed25519_keypair,
+        ),
     )
     .await;
 }

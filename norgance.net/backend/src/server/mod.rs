@@ -17,9 +17,14 @@ async fn shutdown_signal() {
         .expect("failed to install CTRL+C signal handler");
 }
 
-fn private_key_to_public_key_base64(private_key: &x448::Secret) -> String {
-    let public_key = x448::PublicKey::from(private_key);
+fn private_key_to_public_key_base64(public_key: &x448::PublicKey) -> String {
     base64::encode_config(public_key.as_bytes(), base64::STANDARD_NO_PAD)
+}
+
+fn private_key_sign_base64(public_key: &x448::PublicKey, keypair: &ed25519_dalek::Keypair) -> String {
+    use ed25519_dalek::Signer;
+    let signature = keypair.sign(public_key.as_bytes());
+    base64::encode_config(signature.to_bytes(), base64::STANDARD_NO_PAD)
 }
 
 pub struct ServerData {
@@ -28,7 +33,7 @@ pub struct ServerData {
     authentication_bearer: Arc<String>,
     private_key_x448: Arc<x448::Secret>,
     public_key_x448_base64: Arc<String>,
-    // private_key_ed25519: Arc<ed25519_dalek::SecretKey>,
+    public_key_signature: Arc<String>,
 }
 
 impl ServerData {
@@ -36,15 +41,21 @@ impl ServerData {
         db_pool: db::DbPool,
         #[cfg(feature = "development")]
         authentication_bearer: String,
-        private_key_x448: x448::Secret,
+        x448_private_key: x448::Secret,
+        ed25519_keypair: ed25519_dalek::Keypair,
     ) -> ServerData {
-        let public_key_x448_base64 = private_key_to_public_key_base64(&private_key_x448);
+
+        let x448_public_key = x448::PublicKey::from(&x448_private_key);
+        let public_key_x448_base64 = private_key_to_public_key_base64(&x448_public_key);
+        let signature_base64 = private_key_sign_base64(&x448_public_key, &ed25519_keypair);
+
         ServerData {
             db_pool: Arc::new(db_pool),
             #[cfg(feature = "development")]
             authentication_bearer: Arc::new(authentication_bearer),
-            private_key_x448: Arc::new(private_key_x448),
+            private_key_x448: Arc::new(x448_private_key),
             public_key_x448_base64: Arc::new(public_key_x448_base64),
+            public_key_signature: Arc::new(signature_base64),
         }
     }
 }
@@ -74,7 +85,7 @@ pub async fn server_main(addr: SocketAddr, data: ServerData) {
                             .await
                         }
                         (&Method::GET, "/chatrouille_informations") => {
-                            handlers::chatrouille_informations(&data.public_key_x448_base64)
+                            handlers::chatrouille_informations(&data.public_key_x448_base64, &data.public_key_signature)
                         }
                         (&Method::GET, "/health") => handlers::health(&data.db_pool),
                         #[cfg(feature = "development")]
