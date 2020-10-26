@@ -22,6 +22,7 @@ mod db;
 mod server;
 mod validation;
 mod vault;
+mod commandline;
 
 #[macro_use]
 extern crate diesel_migrations;
@@ -38,6 +39,14 @@ embed_migrations!("./migrations");
 #[tokio::main]
 #[allow(clippy::print_stdout, clippy::expect_used, clippy::unwrap_used)]
 async fn main() {
+    let args : Vec<String> = env::args().collect();
+    
+    if args.len() >= 2 && args[1] == "new_keys"{
+        commandline::new_keys();
+        return;
+    }
+
+
     let db_pool = db::create_connection_pool().expect("Unable to create connection pool");
 
     {
