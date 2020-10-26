@@ -5,6 +5,7 @@ use std::sync::Arc;
 use crate::db;
 use crate::server::check_password_quality;
 use crate::validation;
+use crate::vault;
 
 #[derive(Debug, Snafu)]
 pub enum NorganceError {
@@ -61,6 +62,7 @@ pub struct CitizenRegistrationResult {
  **/
 pub struct Ctx {
     pub db_pool: Arc<db::DbPool>,
+    pub vault_client: Arc<vault::Client>,
     pub citizen_identifier: Option<String>,
 }
 impl juniper::Context for Ctx {}

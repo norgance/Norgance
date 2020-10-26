@@ -1,6 +1,6 @@
 use snafu::{OptionExt, ResultExt, Snafu};
-use std::cell::RefCell;
 use std::env;
+use std::sync::{Arc, RwLock};
 
 #[allow(clippy::large_enum_variant)]
 #[derive(Debug, Snafu)]
@@ -34,6 +34,7 @@ pub enum VaultError {
         source: reqwest::Error,
     },
     WrongCredentials,
+    AuthenticationLock,
 }
 
 pub type Result<T, E = VaultError> = std::result::Result<T, E>;
@@ -43,7 +44,7 @@ pub struct Client {
     username: String,
     password: String,
     client: reqwest::Client,
-    authentication: RefCell<String>,
+    authentication: Arc<RwLock<String>>,
 }
 
 impl Client {
@@ -55,7 +56,7 @@ impl Client {
 
         Ok(Client {
             addr: String::from(addr),
-            authentication: RefCell::new(String::new()),
+            authentication: Arc::new(RwLock::new(String::new())),
             client,
             username: String::from(username),
             password: String::from(password),
@@ -100,11 +101,27 @@ impl Client {
 
         let token = response.auth.client_token;
         let bearer = String::from("Bearer ") + &token;
-        self.authentication.replace(bearer);
+
+        {
+            let mut authentication = match self.authentication.write() {
+                Ok(a) => a,
+                Err(_) => return Err(VaultError::AuthenticationLock),
+            };
+            *authentication = bearer;
+        }
+
         Ok(())
     }
 
     async fn load_secret(&self, path: &str) -> Result<SecretDataResponse> {
+        let authentication : String;
+        {
+            let authentication_rwlock_guard = match self.authentication.read() {
+                Ok(a) => a,
+                Err(_) => return Err(VaultError::AuthenticationLock),
+            };
+            authentication = authentication_rwlock_guard.clone();
+        }
         let response = self
             .client
             .get(&format!(
@@ -115,7 +132,7 @@ impl Client {
             ))
             .header(
                 reqwest::header::AUTHORIZATION,
-                self.authentication.borrow().clone(),
+                authentication,
             )
             .send()
             .await

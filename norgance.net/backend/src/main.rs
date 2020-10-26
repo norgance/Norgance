@@ -80,7 +80,9 @@ async fn main() {
 
     server::server_main(
         addr,
-        server::ServerData::new(db_pool,
+        server::ServerData::new(
+            db_pool,
+            vault_client,
             #[cfg(feature = "development")]
             authentication_bearer,
             server_secrets.x448_private_key,

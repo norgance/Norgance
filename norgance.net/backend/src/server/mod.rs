@@ -9,6 +9,7 @@ use hyper::service::{make_service_fn, service_fn};
 use hyper::{Method, Server};
 
 use crate::db;
+use crate::vault;
 
 #[allow(clippy::expect_used)]
 async fn shutdown_signal() {
@@ -29,6 +30,7 @@ fn private_key_sign_base64(public_key: &x448::PublicKey, keypair: &ed25519_dalek
 
 pub struct ServerData {
     db_pool: Arc<db::DbPool>,
+    vault_client: Arc<vault::Client>,
     #[cfg(feature = "development")]
     authentication_bearer: Arc<String>,
     private_key_x448: Arc<x448::Secret>,
@@ -39,6 +41,7 @@ pub struct ServerData {
 impl ServerData {
     pub fn new(
         db_pool: db::DbPool,
+        vault_client: vault::Client,
         #[cfg(feature = "development")]
         authentication_bearer: String,
         x448_private_key: x448::Secret,
@@ -51,6 +54,7 @@ impl ServerData {
 
         ServerData {
             db_pool: Arc::new(db_pool),
+            vault_client: Arc::new(vault_client),
             #[cfg(feature = "development")]
             authentication_bearer: Arc::new(authentication_bearer),
             private_key_x448: Arc::new(x448_private_key),
@@ -80,6 +84,7 @@ pub async fn server_main(addr: SocketAddr, data: ServerData) {
                                 req,
                                 root_node,
                                 Arc::clone(&data.db_pool),
+                                Arc::clone(&data.vault_client),
                                 Arc::clone(&data.private_key_x448),
                             )
                             .await
@@ -94,6 +99,7 @@ pub async fn server_main(addr: SocketAddr, data: ServerData) {
                                 req,
                                 root_node,
                                 Arc::clone(&data.db_pool),
+                                Arc::clone(&data.vault_client),
                                 Arc::clone(&data.authentication_bearer),
                             )
                             .await
