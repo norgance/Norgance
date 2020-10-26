@@ -1,4 +1,5 @@
 use snafu::{OptionExt, ResultExt, Snafu};
+use std::collections::HashMap;
 use std::env;
 use std::sync::{Arc, RwLock};
 
@@ -113,8 +114,8 @@ impl Client {
         Ok(())
     }
 
-    async fn load_secret(&self, path: &str) -> Result<SecretDataResponse> {
-        let authentication : String;
+    async fn get(&self, raw_path: &str) -> Result<reqwest::Response> {
+        let authentication: String;
         {
             let authentication_rwlock_guard = match self.authentication.read() {
                 Ok(a) => a,
@@ -122,21 +123,23 @@ impl Client {
             };
             authentication = authentication_rwlock_guard.clone();
         }
+
+        self.client
+            .get(&format!("{}/v1/{}", &self.addr, raw_path,))
+            .header(reqwest::header::AUTHORIZATION, authentication)
+            .send()
+            .await
+            .context(QueryError)
+    }
+
+    async fn load_secret(&self, path: &str) -> Result<SecretDataResponse> {
         let response = self
-            .client
             .get(&format!(
-                "{}/v1/secret/data/{}",
-                &self.addr,
+                "secret/data/{}",
                 percent_encoding::utf8_percent_encode(path, percent_encoding::NON_ALPHANUMERIC)
                     .to_string()
             ))
-            .header(
-                reqwest::header::AUTHORIZATION,
-                authentication,
-            )
-            .send()
-            .await
-            .context(QueryError)?
+            .await?
             .json::<SecretResponse>()
             .await
             .context(ResultParsingError)?;
@@ -153,6 +156,26 @@ impl Client {
         let secrets_package = self.load_secret(&secret_path).await?;
         let secrets: ServerPrivateSecrets = secrets_package.data.try_into()?;
         Ok(secrets)
+    }
+
+    pub async fn load_public_keys(&self, name: &str) -> Result<Vec<PublicKey>> {
+        let response = self
+            .get(&format!(
+                "transit/keys/{}",
+                percent_encoding::utf8_percent_encode(name, percent_encoding::NON_ALPHANUMERIC)
+                    .to_string()
+            ))
+            .await?
+            .json::<PublicKeysResponse>()
+            .await
+            .context(ResultParsingError)?;
+
+        Ok(response
+            .data
+            .keys
+            .into_iter()
+            .map(|(_, public_key)| public_key)
+            .collect())
     }
 }
 
@@ -219,4 +242,20 @@ impl std::convert::TryFrom<SecretDataSecretsPackage> for ServerPrivateSecrets {
             ed25519_keypair,
         })
     }
+}
+
+#[derive(serde::Deserialize, Debug)]
+struct PublicKeysResponse {
+    data: PublicKeysDataResponse,
+}
+
+#[derive(serde::Deserialize, Debug)]
+struct PublicKeysDataResponse {
+    keys: HashMap<String, PublicKey>,
+}
+
+#[derive(serde::Serialize, serde::Deserialize, Debug)]
+pub struct PublicKey {
+    pub public_key: String,
+    pub creation_time: String,
 }

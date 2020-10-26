@@ -17,6 +17,9 @@ pub enum NorganceError {
 
     #[snafu(display("The identifier format is invalid"))]
     InvalidIdentifier,
+
+    #[snafu(display("Error while communicating with the vault: {}", source))]
+    VaultError { source: vault::VaultError },
 }
 
 /**
@@ -91,7 +94,7 @@ impl Query {
             return Err(NorganceError::InvalidIdentifier.into());
         }
 
-        let db = context.db_pool.get().context(DatabaseConnectionError)?;
+        let db = db_connection(context)?;
         let available = db::is_identifier_available(&db, &identifier)?;
 
         Ok(available)
@@ -136,6 +139,14 @@ impl Query {
     ) -> FieldResult<Vec<check_password_quality::PasswordQuality>> {
         let res = check_password_quality::check_password_quality(prefix).await?;
         Ok(res)
+    }
+
+    async fn getNorgancePublicKeys(context: &Ctx) -> FieldResult<Vec<String>> {
+        let public_keys = context.vault_client.load_public_keys("tamponner").await.context(VaultError)?;
+
+        let prout = public_keys.iter().map(|public_key| public_key.public_key.clone()).collect();
+
+        Ok(prout)
     }
 }
 
