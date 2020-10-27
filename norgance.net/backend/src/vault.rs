@@ -2,6 +2,7 @@ use snafu::{OptionExt, ResultExt, Snafu};
 use std::collections::HashMap;
 use std::env;
 use std::sync::{Arc, RwLock};
+use reqwest::Method;
 
 #[allow(clippy::large_enum_variant)]
 #[derive(Debug, Snafu)]
@@ -12,9 +13,7 @@ pub enum VaultError {
     MissingVaultCredentials {
         source: env::VarError,
     },
-    //InvalidClient { source: hashicorp_vault::Error },
     CannotGetSecret,
-    #[snafu(display("Base64 decoding: {}", source))]
     Base64Decode {
         source: base64::DecodeError,
     },
@@ -22,15 +21,18 @@ pub enum VaultError {
     SecretEd25519Load {
         source: ed25519_dalek::ed25519::Error,
     },
-    #[snafu(display("Client build: {}", source))]
     ClientBuild {
         source: reqwest::Error,
     },
-    #[snafu(display("Query error: {}", source))]
+    #[snafu(display("QueryError"))]
     QueryError {
         source: reqwest::Error,
     },
-    #[snafu(display("Result parsing error: {}", source))]
+    #[snafu(display("ResponseError"))]
+    ResponseError {
+        source: reqwest::Error,
+    },
+    #[snafu(display("ResultParsingError"))]
     ResultParsingError {
         source: reqwest::Error,
     },
@@ -96,6 +98,8 @@ impl Client {
             .send()
             .await
             .context(QueryError)?
+            .error_for_status()
+            .context(ResponseError)?
             .json::<LoginResponse>()
             .await
             .context(ResultParsingError)?;
@@ -114,7 +118,7 @@ impl Client {
         Ok(())
     }
 
-    async fn get(&self, raw_path: &str) -> Result<reqwest::Response> {
+    async fn request(&self, method: Method, raw_path: &str) -> Result<reqwest::Response> {
         let authentication: String;
         {
             let authentication_rwlock_guard = match self.authentication.read() {
@@ -125,16 +129,32 @@ impl Client {
         }
 
         self.client
-            .get(&format!("{}/v1/{}", &self.addr, raw_path,))
+            .request(method, &format!("{}/v1/{}", &self.addr, raw_path,))
             .header(reqwest::header::AUTHORIZATION, authentication)
             .send()
             .await
-            .context(QueryError)
+            .context(QueryError)?
+            .error_for_status()
+            .context(ResponseError)
+    }
+
+    pub async fn renew_token(&self) -> Result<()> {
+        self.request(Method::POST, "auth/token/renew-self").await?;
+        Ok(())
+    }
+
+    pub async fn renew_token_each_hour(&self) -> Result<()> {
+        let mut interval_hours = tokio::time::interval(std::time::Duration::from_secs(3600));
+        loop {
+            interval_hours.tick().await;
+            println!("Renew vault token");
+            self.renew_token().await?;
+        }
     }
 
     async fn load_secret(&self, path: &str) -> Result<SecretDataResponse> {
         let response = self
-            .get(&format!(
+            .request(Method::GET, &format!(
                 "secret/data/{}",
                 percent_encoding::utf8_percent_encode(path, percent_encoding::NON_ALPHANUMERIC)
                     .to_string()
@@ -160,7 +180,7 @@ impl Client {
 
     pub async fn load_public_keys(&self, name: &str) -> Result<Vec<PublicKey>> {
         let response = self
-            .get(&format!(
+            .request(Method::GET, &format!(
                 "transit/keys/{}",
                 percent_encoding::utf8_percent_encode(name, percent_encoding::NON_ALPHANUMERIC)
                     .to_string()

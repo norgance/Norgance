@@ -41,7 +41,7 @@ pub struct ServerData {
 impl ServerData {
     pub fn new(
         db_pool: db::DbPool,
-        vault_client: vault::Client,
+        vault_client: Arc<vault::Client>,
         #[cfg(feature = "development")]
         authentication_bearer: String,
         x448_private_key: x448::Secret,
@@ -54,7 +54,7 @@ impl ServerData {
 
         ServerData {
             db_pool: Arc::new(db_pool),
-            vault_client: Arc::new(vault_client),
+            vault_client: Arc::clone(&vault_client),
             #[cfg(feature = "development")]
             authentication_bearer: Arc::new(authentication_bearer),
             private_key_x448: Arc::new(x448_private_key),

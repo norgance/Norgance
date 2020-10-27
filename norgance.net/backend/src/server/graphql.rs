@@ -60,6 +60,12 @@ pub struct CitizenRegistrationResult {
     valid_aead_data: bool,
 }
 
+#[derive(juniper::GraphQLObject, Clone)]
+pub struct NorgancePublicKey {
+    public_ed25519_dalek: String,
+    creation_time: String,
+}
+
 /**
  * Context
  **/
@@ -141,12 +147,24 @@ impl Query {
         Ok(res)
     }
 
-    async fn getNorgancePublicKeys(context: &Ctx) -> FieldResult<Vec<String>> {
-        let public_keys = context.vault_client.load_public_keys("tamponner").await.context(VaultError)?;
+    async fn getNorgancePublicKeys(context: &Ctx) -> FieldResult<Vec<NorgancePublicKey>> {
+        let public_keys = context
+            .vault_client
+            .load_public_keys("tamponner")
+            .await
+            .context(VaultError)?;
 
-        let prout = public_keys.iter().map(|public_key| public_key.public_key.clone()).collect();
+        let mut norgance_public_keys : Vec<NorgancePublicKey> = public_keys
+            .iter()
+            .map(|public_key| NorgancePublicKey {
+                public_ed25519_dalek: public_key.public_key.clone().replace("=", ""),
+                creation_time: public_key.creation_time.clone(),
+            })
+            .collect();
 
-        Ok(prout)
+        norgance_public_keys.sort_by(|a,b| a.creation_time.cmp(&b.creation_time));
+
+        Ok(norgance_public_keys)
     }
 }
 
@@ -166,7 +184,6 @@ impl Mutation {
         use crate::db::models::{Citizen, NewCitizen};
         use crate::db::schema::citizens;
         use diesel::prelude::*;
-
 
         // This is not very nice
         let mut result = CitizenRegistrationResult {
