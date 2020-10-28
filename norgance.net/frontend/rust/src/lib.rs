@@ -68,6 +68,7 @@ pub enum NorganceError {
     InvalidX448PublicKey,
     NotEnoughEntropy,
     PublicKey,
+    PublicKeySignature,
     RandomError {
         source: rand::Error,
     },
@@ -199,14 +200,6 @@ pub struct Chatrouille {
 
 #[wasm_bindgen]
 impl Chatrouille {
-    pub fn with_public_key_base64(server_public_key: &str) -> Result<Chatrouille> {
-        let key = match base64::decode(server_public_key) {
-            Ok(bytes) => bytes,
-            Err(_) => return Err(NorganceError::PublicKey.into()),
-        };
-
-        Chatrouille::with_public_key(&key)
-    }
 
     pub fn with_public_key(server_public_key: &[u8]) -> Result<Chatrouille> {
         let server_public_key = match x448::PublicKey::from_bytes(server_public_key) {
@@ -218,6 +211,47 @@ impl Chatrouille {
             server_public_key,
             client_keypair: None,
         })
+    }
+
+    pub fn with_public_key_base64(server_public_key: &str) -> Result<Chatrouille> {
+        let key = match base64::decode(server_public_key) {
+            Ok(bytes) => bytes,
+            Err(_) => return Err(NorganceError::PublicKey.into()),
+        };
+
+        Chatrouille::with_public_key(&key)
+    }
+
+    pub fn with_public_key_and_signature_base64(server_public_key: &str, signature: &str, hardcoded_public_key: &str) -> Result<Chatrouille> {
+        use std::convert::TryFrom;
+        use ed25519_dalek::Verifier;
+        let server_public_key_bytes = match base64::decode(server_public_key) {
+            Ok(bytes) => bytes,
+            Err(_) => return Err(NorganceError::PublicKey.into()),
+        };
+        let signature_bytes = match base64::decode(signature) {
+            Ok(bytes) => bytes,
+            Err(_) => return Err(NorganceError::PublicKeySignature.into()),
+        };
+        let signature_instance = match ed25519_dalek::Signature::try_from(&signature_bytes[..]) {
+            Ok(signature) => signature,
+            Err(_) => return Err(NorganceError::PublicKeySignature.into()),
+        };
+        let hardcoded_public_key_bytes = match base64::decode(hardcoded_public_key) {
+            Ok(bytes) => bytes,
+            Err(_) => return Err(NorganceError::PublicKeySignature.into()),
+        };
+        let hardcoded_public_key_instance = match ed25519_dalek::PublicKey::from_bytes(&hardcoded_public_key_bytes) {
+            Ok(public_key) => public_key,
+            Err(e) => return Err(NorganceError::PublicKeySignature.into()),
+        };
+
+        match hardcoded_public_key_instance.verify(&server_public_key_bytes, &signature_instance) {
+            Ok(_) => (),
+            Err(_) => return Err(NorganceError::PublicKeySignature.into()),
+        };
+
+        Chatrouille::with_public_key(&server_public_key_bytes)
     }
 
     pub fn set_client_keypair(&mut self, access_key: &NorganceAccessKey) -> Result<()> {

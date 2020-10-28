@@ -9,16 +9,22 @@ export class ChatrouilleQuery extends RustClass {
 export class Chatrouille extends RustClass {
   static className = 'Chatrouille';
 
+  static async withPublicKey(serverPublicKey) {
+    return this._callStatic('with_public_key', {
+      args: [serverPublicKey],
+      transfer: [serverPublicKey.buffer],
+    });
+  }
+
   static async withPublicKeyBase64(serverPublicKey) {
     return this._callStatic('with_public_key_base64', {
       args: [serverPublicKey],
     });
   }
 
-  static async withPublicKey(serverPublicKey) {
-    return this._callStatic('with_public_key', {
-      args: [serverPublicKey],
-      transfer: [serverPublicKey.buffer],
+  static async withPublicKeyAndSignatureBase64(serverPublicKey, signature, hardcodedPublicKey) {
+    return this._callStatic('with_public_key_and_signature_base64', {
+      args: [serverPublicKey, signature, hardcodedPublicKey],
     });
   }
 
