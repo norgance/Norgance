@@ -89,8 +89,8 @@ pub async fn server_main(addr: SocketAddr, data: ServerData) {
                             )
                             .await
                         }
-                        (&Method::GET, "/chatrouille_informations") => {
-                            handlers::chatrouille_informations(&data.public_key_x448_base64, &data.public_key_signature)
+                        (&Method::GET, "/chatrouille_information") => {
+                            handlers::chatrouille_information(&data.public_key_x448_base64, &data.public_key_signature)
                         }
                         (&Method::GET, "/health") => handlers::health(&data.db_pool),
                         #[cfg(feature = "development")]

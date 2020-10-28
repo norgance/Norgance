@@ -297,7 +297,7 @@ pub async fn chatrouille(
         .expect("Unable to build response"))
 }
 
-pub fn chatrouille_informations(public_key: &str, signature: &str) -> ResultHandler {
+pub fn chatrouille_information(public_key: &str, signature: &str) -> ResultHandler {
     let time = match get_timestamp() {
         Ok(t) => t,
         Err(response) => return Ok(response),
