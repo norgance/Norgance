@@ -145,6 +145,7 @@ impl Client {
 
     pub async fn renew_token_each_hour(&self) -> Result<()> {
         let mut interval_hours = tokio::time::interval(std::time::Duration::from_secs(3600));
+        interval_hours.tick().await;
         loop {
             interval_hours.tick().await;
             println!("Renew vault token");
