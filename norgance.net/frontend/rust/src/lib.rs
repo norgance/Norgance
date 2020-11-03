@@ -64,8 +64,6 @@ pub enum NorganceError {
     InvalidUTF8,
     InvalidX25519DalekPrivateKey,
     InvalidX25519DalekPublicKey,
-    InvalidX448PrivateKey,
-    InvalidX448PublicKey,
     NotEnoughEntropy,
     PublicKey,
     PublicKeySignature,
@@ -155,23 +153,39 @@ pub fn norgance_citizen_symmetric_key(
 
 #[wasm_bindgen]
 pub struct NorganceAccessKey {
-    keypair: ed25519_dalek::Keypair,
+    key: NorganceEd25519DalekPrivateKey,
 }
 
 #[wasm_bindgen]
-pub fn norgance_citizen_access_key(identifier: &str, password: &str) -> Result<NorganceAccessKey> {
-    let raw_key = norgance_argon2id(identifier, password, b"access_key")?;
+impl NorganceAccessKey {
+    pub fn derive(identifier: &str, password: &str) -> Result<NorganceAccessKey> {
+        let raw_key = norgance_argon2id(identifier, password, b"access_key")?;
 
-    let secret = match ed25519_dalek::SecretKey::from_bytes(&raw_key) {
-        Ok(key) => key,
-        Err(_) => return Err(NorganceError::AccessKeyError.into()),
-    };
+        let key = NorganceEd25519DalekPrivateKey::from_bytes(&raw_key)?;
 
-    let public: ed25519_dalek::PublicKey = (&secret).into();
+        Ok(NorganceAccessKey { key })
+    }
 
-    Ok(NorganceAccessKey {
-        keypair: ed25519_dalek::Keypair { public, secret },
-    })
+    pub fn get_public_key_base64(&self) -> String {
+        self.key.get_public_key().to_base64()
+    }
+}
+
+impl NorganceAccessKey {
+    pub fn to_keypair(&self) -> Result<ed25519_dalek::Keypair> {
+        // ed25519_dalek::Keypair do not implement the copy trait
+        // So we do it manually from the bytes
+        let private_key_bytes = self.key.key.to_bytes();
+        let copied_private_key = match ed25519_dalek::SecretKey::from_bytes(&private_key_bytes) {
+            Ok(key) => key,
+            Err(_) => return Err(NorganceError::KeypairError.into()),
+        };
+
+        let secret = copied_private_key;
+        let public: ed25519_dalek::PublicKey = (&secret).into();
+
+        Ok(ed25519_dalek::Keypair { public, secret })
+    }
 }
 
 #[must_use]
@@ -200,7 +214,6 @@ pub struct Chatrouille {
 
 #[wasm_bindgen]
 impl Chatrouille {
-
     pub fn with_public_key(server_public_key: &[u8]) -> Result<Chatrouille> {
         let server_public_key = match x448::PublicKey::from_bytes(server_public_key) {
             Some(pk) => pk,
@@ -222,9 +235,13 @@ impl Chatrouille {
         Chatrouille::with_public_key(&key)
     }
 
-    pub fn with_public_key_and_signature_base64(server_public_key: &str, signature: &str, hardcoded_public_key: &str) -> Result<Chatrouille> {
-        use std::convert::TryFrom;
+    pub fn with_public_key_and_signature_base64(
+        server_public_key: &str,
+        signature: &str,
+        hardcoded_public_key: &str,
+    ) -> Result<Chatrouille> {
         use ed25519_dalek::Verifier;
+        use std::convert::TryFrom;
         let server_public_key_bytes = match base64::decode(server_public_key) {
             Ok(bytes) => bytes,
             Err(_) => return Err(NorganceError::PublicKey.into()),
@@ -241,10 +258,11 @@ impl Chatrouille {
             Ok(bytes) => bytes,
             Err(_) => return Err(NorganceError::PublicKeySignature.into()),
         };
-        let hardcoded_public_key_instance = match ed25519_dalek::PublicKey::from_bytes(&hardcoded_public_key_bytes) {
-            Ok(public_key) => public_key,
-            Err(e) => return Err(NorganceError::PublicKeySignature.into()),
-        };
+        let hardcoded_public_key_instance =
+            match ed25519_dalek::PublicKey::from_bytes(&hardcoded_public_key_bytes) {
+                Ok(public_key) => public_key,
+                Err(_) => return Err(NorganceError::PublicKeySignature.into()),
+            };
 
         match hardcoded_public_key_instance.verify(&server_public_key_bytes, &signature_instance) {
             Ok(_) => (),
@@ -255,15 +273,8 @@ impl Chatrouille {
     }
 
     pub fn set_client_keypair(&mut self, access_key: &NorganceAccessKey) -> Result<()> {
-        // ed25519_dalek::Keypair do not implement the copy trait
-        // So we do it manually from the bytes
-        let keypair_bytes = access_key.keypair.to_bytes();
-        let copied_keypair = match ed25519_dalek::Keypair::from_bytes(&keypair_bytes) {
-            Ok(keypair) => keypair,
-            Err(_) => return Err(NorganceError::KeypairError.into()),
-        };
-
-        self.client_keypair = Some(copied_keypair);
+        let keypair = access_key.to_keypair()?;
+        self.client_keypair = Some(keypair);
 
         Ok(())
     }
@@ -376,67 +387,6 @@ impl NorganceRng {
 }
 
 #[wasm_bindgen]
-pub struct NorganceX448PrivateKey {
-    key: x448::Secret,
-}
-
-#[wasm_bindgen]
-impl NorganceX448PrivateKey {
-    pub fn from_rng(rng: &mut NorganceRng) -> NorganceX448PrivateKey {
-        let key = x448::Secret::new(&mut rng.rng);
-        NorganceX448PrivateKey { key }
-    }
-
-    pub fn from_base64(private_key_base64: &str) -> Result<NorganceX448PrivateKey> {
-        let bytes = match base64::decode(private_key_base64) {
-            Ok(bytes) => bytes,
-            Err(_) => return Err(NorganceError::InvalidX448PrivateKey.into()),
-        };
-
-        match x448::Secret::from_bytes(&bytes) {
-            Some(key) => Ok(NorganceX448PrivateKey { key }),
-            None => Err(NorganceError::InvalidX448PrivateKey.into()),
-        }
-    }
-
-    #[must_use]
-    pub fn to_base64(&self) -> String {
-        base64::encode_config(self.key.as_bytes().to_vec(), base64::STANDARD_NO_PAD)
-    }
-
-    #[must_use]
-    pub fn get_public_key(&self) -> NorganceX448PublicKey {
-        let key = x448::PublicKey::from(&self.key);
-        NorganceX448PublicKey { key }
-    }
-}
-
-#[wasm_bindgen]
-pub struct NorganceX448PublicKey {
-    key: x448::PublicKey,
-}
-
-#[wasm_bindgen]
-impl NorganceX448PublicKey {
-    pub fn from_base64(public_key_base64: &str) -> Result<NorganceX448PublicKey> {
-        let bytes = match base64::decode(public_key_base64) {
-            Ok(bytes) => bytes,
-            Err(_) => return Err(NorganceError::InvalidX448PublicKey.into()),
-        };
-
-        match x448::PublicKey::from_bytes(&bytes) {
-            Some(key) => Ok(NorganceX448PublicKey { key }),
-            None => Err(NorganceError::InvalidX448PublicKey.into()),
-        }
-    }
-
-    #[must_use]
-    pub fn to_base64(&self) -> String {
-        base64::encode_config(self.key.as_bytes().to_vec(), base64::STANDARD_NO_PAD)
-    }
-}
-
-#[wasm_bindgen]
 pub struct NorganceX25519DalekPrivateKey {
     key: x25519_dalek::StaticSecret,
 }
@@ -519,18 +469,22 @@ impl NorganceEd25519DalekPrivateKey {
         NorganceEd25519DalekPrivateKey { key }
     }
 
-    pub fn from_base64(private_key_base64: &str) -> Result<NorganceEd25519DalekPrivateKey> {
-        let bytes = match base64::decode(private_key_base64) {
-            Ok(bytes) => bytes.into_boxed_slice(),
-            Err(_) => return Err(NorganceError::InvalidEd25519DalekPrivateKey.into()),
-        };
-
+    pub fn from_bytes(bytes: &[u8]) -> Result<NorganceEd25519DalekPrivateKey> {
         let key = match ed25519_dalek::SecretKey::from_bytes(&bytes) {
             Ok(key) => key,
             Err(_) => return Err(NorganceError::InvalidEd25519DalekPrivateKey.into()),
         };
 
         Ok(NorganceEd25519DalekPrivateKey { key })
+    }
+
+    pub fn from_base64(private_key_base64: &str) -> Result<NorganceEd25519DalekPrivateKey> {
+        let bytes = match base64::decode(private_key_base64) {
+            Ok(bytes) => bytes.into_boxed_slice(),
+            Err(_) => return Err(NorganceError::InvalidEd25519DalekPrivateKey.into()),
+        };
+
+        NorganceEd25519DalekPrivateKey::from_bytes(&bytes)
     }
 
     #[must_use]

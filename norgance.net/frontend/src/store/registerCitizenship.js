@@ -1,9 +1,8 @@
 import Vue from 'vue';
-import { norganceCitizenAccessKey, norganceCitizenSymmetricKey } from '../rustyglue';
 import {
+  NorganceAccessKey,
   NorganceRng,
   NorganceX25519DalekPrivateKey,
-  NorganceX448PrivateKey,
   NorganceEd25519DalekPrivateKey,
 } from '../rustyglue/classes';
 import entropy from '../entropy';
@@ -53,31 +52,31 @@ export default {
       const entropyInstance = entropy();
       commit('progress', 'accessKey');
       entropyInstance.ping();
-      const accessKey = await norganceCitizenAccessKey(identifier, password);
+      const accessKey = await NorganceAccessKey.derive(identifier, password);
       commit('progress', 'symmetricKey');
       entropyInstance.ping();
-      const symmetricKey = await norganceCitizenSymmetricKey(identifier, password);
+      // const symmetricKey = await norganceCitizenSymmetricKey(identifier, password);
 
       commit('progress', 'asymmetricKeys');
       entropyInstance.ping();
       const rng = await NorganceRng.fromEntropy(entropyInstance);
-      const x448PrivateKey = await NorganceX448PrivateKey.fromRng(rng);
-      const x448PublicKey = await x448PrivateKey.getPublicKey();
       const x25519PrivateKey = await NorganceX25519DalekPrivateKey.fromRng(rng);
       const x25519PublicKey = await x25519PrivateKey.getPublicKey();
       const ed25519PrivateKey = await NorganceEd25519DalekPrivateKey.fromRng(rng);
       const ed25519PublicKey = await ed25519PrivateKey.getPublicKey();
 
       const registration = {
-        publicX448: await x448PublicKey.toBase64(),
-        publicX25519Dalek: await x25519PublicKey.toBase64(),
-        publicEd25519Dalek: await ed25519PublicKey.toBase64(),
+        identifier: identifierHash,
+        access_key: await accessKey.getPublicKeyBase64(),
+        public_x25519_dalek: await x25519PublicKey.toBase64(),
+        public_ed25519_dalek: await ed25519PublicKey.toBase64(),
+        aead_data: 'abc',
       };
 
       await Promise.all([
         rng.free(),
-        x448PrivateKey.free(),
-        x448PublicKey.free(),
+        // symmetricKey.free(),
+        accessKey.free(),
         x25519PrivateKey.free(),
         x25519PublicKey.free(),
         ed25519PrivateKey.free(),
@@ -86,7 +85,7 @@ export default {
 
       commit('progress', 'done');
       entropyInstance.ping();
-      console.log(identity, identifierHash, symmetricKey, accessKey, x448PrivateKey, registration);
+      console.log(identity, identifierHash, accessKey, registration);
     },
   },
 };

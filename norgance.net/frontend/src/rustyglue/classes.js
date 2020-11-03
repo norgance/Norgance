@@ -5,6 +5,20 @@ import { Chatrouille, ChatrouilleQuery } from './rustyChatrouille';
 
 export { Chatrouille, ChatrouilleQuery };
 
+export class NorganceAccessKey extends RustClass {
+  static className = 'NorganceAccessKey';
+
+  static async derive(identifier, password) {
+    return this._callStatic('derive', {
+      args: [identifier, password],
+    });
+  }
+
+  async getPublicKeyBase64() {
+    return this._call('get_public_key_base64');
+  }
+}
+
 export class NorganceRng extends RustClass {
   static className = 'NorganceRng';
 
@@ -14,46 +28,6 @@ export class NorganceRng extends RustClass {
       // We don't transfer the data, we copy it
       transfer: [],
     });
-  }
-}
-
-export class NorganceX448PrivateKey extends RustClass {
-  static className = 'NorganceX448PrivateKey';
-
-  static async fromRng(rng) {
-    return this._callStatic('from_rng', {
-      args: [rng],
-    });
-  }
-
-  static async fromBase64(privateKeyBase64) {
-    return this._callStatic('from_base64', {
-      args: [privateKeyBase64],
-    });
-  }
-
-  async toBase64() {
-    return this._call('to_base64');
-  }
-
-  async getPublicKey() {
-    return this._call('get_public_key', {
-      returnClassName: 'NorganceX448PublicKey',
-    });
-  }
-}
-
-export class NorganceX448PublicKey extends RustClass {
-  static className = 'NorganceX448PublicKey';
-
-  static async fromBase64(publicKeyBase64) {
-    return this._callStatic('from_base64', {
-      args: [publicKeyBase64],
-    });
-  }
-
-  async toBase64() {
-    return this._call('to_base64');
   }
 }
 
