@@ -57,6 +57,11 @@ const routes = [
         component: () => import(/* webpackChunkName: "citizen-application-final" */ '../views/citizenApplication/Final.vue'),
       },
       {
+        path: 'congratulations',
+        name: 'CitizenApplicationCongratulations',
+        component: () => import(/* webpackChunkName: "citizen-application-congratulations" */ '../views/citizenApplication/Congratulations.vue'),
+      },
+      {
         path: '',
         name: 'CitizenApplicationStart',
         component: () => import(/* webpackChunkName: "citizen-application-start" */ '../views/citizenApplication/Start.vue'),

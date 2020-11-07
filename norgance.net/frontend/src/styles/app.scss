@@ -39,3 +39,54 @@ body {
   opacity: 0;
   transform: translate(-1em, 0);
 }
+
+@function rainbow-linear-gradient($angle, $s, $l) {
+  $rainbow: ();
+  $steps: 36 * 2;
+  @for $i from 0 through $steps {
+    $rainbow: append($rainbow, hsl($i / ($steps/2) * 360, $s, $l), comma);
+  }
+  @return linear-gradient($angle, $rainbow);
+}
+
+.rainbow-button {
+  font-size: 0.9em;
+  padding: 0.75em;
+  display: block;
+  width: 100%;
+  font-weight: 400;
+  line-height: 1.2em;
+  margin: 0;
+  border: 1px solid #c0c0c0;
+  //border-color: #41b883;
+  border-color: rgba(0, 0, 0, 0.225);
+  //border-radius: 0.4rem;
+  background: rainbow-linear-gradient(124deg, 50%, 50%);
+  background-size: 4000% 100%;
+  background-position: 1300% 0;
+  animation: rainbow2 240s linear infinite;
+  //animation: rainbow2 10s linear infinite;
+  color: white;
+  min-width: 0;
+  width: auto;
+  font-weight: bold;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  text-decoration: none;
+
+  &:hover {
+    border-color: hsl(300, 50, 70);
+  }
+}
+@keyframes rainbow2 {
+  0% {
+    background-position: 400% 0;
+  }
+  /*50% {
+    background-position: 0% 0;
+  }*/
+  100% {
+    background-position: 0% 0;
+  }
+}

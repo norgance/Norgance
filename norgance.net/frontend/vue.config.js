@@ -1,6 +1,6 @@
 const path = require('path');
 const WasmPackPlugin = require('@wasm-tool/wasm-pack-plugin');
-const webpack = require('webpack');
+// const webpack = require('webpack');
 const WorkerPlugin = require('worker-plugin');
 
 module.exports = {
@@ -16,10 +16,10 @@ module.exports = {
         return args;
       }); */
 
-    config.module
+    /* config.module
       .rule('images')
       .use('url-loader')
-      .tap((options) => ({ ...options, name: '[name].prout.[contenthash].[ext]' }));
+      .tap((options) => ({ ...options, name: '[name].[contenthash].[ext]' })); */
 
     config.module
       .rule('images')
@@ -55,14 +55,14 @@ module.exports = {
   },
 
   configureWebpack: {
-    output: {
+    output: process.env.NODE_ENV !== 'production' ? undefined : {
       chunkFilename: 'js/[name].[contenthash].js',
       filename: '[name].[hash].js',
     },
   },
 
   css: {
-    extract: {
+    extract: process.env.NODE_ENV !== 'production' ? undefined : {
       filename: 'css/[name].[contenthash].css',
       chunkFilename: 'css/[name].[contenthash].css',
     },

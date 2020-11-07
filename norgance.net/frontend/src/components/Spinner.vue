@@ -21,14 +21,36 @@ MIT License
   text-indent: -9999px;
   width: 1em;
   height: 1em;
+  &.large {
+    $size: 4em;
+    width: $size;
+    height: $size;
+    border-radius: $size/2;
+  }
+  &.rainbow {
+    animation: spinner 1250ms infinite linear,
+      rainbow-spinner 12500ms infinite linear;
+    border-color: hsl(340deg, 82%, 52%);
+    border-right-color: transparent !important;
+  }
 }
 
 @keyframes spinner {
- 0% {
-   transform: rotate(0deg);
- }
- 100% {
-   transform: rotate(360deg);
- }
+  0% {
+    transform: rotate(0deg);
+  }
+  100% {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes rainbow-spinner {
+  $steps: 36;
+  @for $i from 0 through $steps {
+    $kf: $i*100/$steps + "%";
+    #{$kf} {
+      border-color: hsl($i/$steps * 360, 50%, 50%);
+    }
+  }
 }
 </style>

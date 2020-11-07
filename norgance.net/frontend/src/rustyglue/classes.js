@@ -19,6 +19,32 @@ export class NorganceAccessKey extends RustClass {
   }
 }
 
+export class NorganceVaultKey extends RustClass {
+  static className = 'NorganceVaultKey';
+
+  static async derive(identifier, password) {
+    return this._callStatic('derive', {
+      args: [identifier, password],
+    });
+  }
+}
+
+export class NorganceVault extends RustClass {
+  static className = 'NorganceVault';
+
+  static async open(key, encryptedDataBase64) {
+    return this._callStatic('open', {
+      args: [key, encryptedDataBase64],
+    });
+  }
+
+  static async seal(key, dataString) {
+    return this._callStatic('seal', {
+      args: [key, dataString],
+    });
+  }
+}
+
 export class NorganceRng extends RustClass {
   static className = 'NorganceRng';
 

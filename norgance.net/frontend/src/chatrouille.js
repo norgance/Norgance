@@ -25,13 +25,13 @@ if (!CHATROUILLE_DEBUG_MODE) {
 
 async function loadChatrouilleInformation() {
   const response = await ky.get(CHATROUILLE_INFORMATION_PATH);
-  const json = await response.json();
-  console.log(json);
-  return json;
+  return response.json();
 }
 
 let instance;
 let instanceBuildingPromise;
+let serverTimeDiff = 0;
+const MAX_SERVER_DIFF = 120; // Chatrouille queries expires after 120 seconds.
 async function buildChatrouilleInstance() {
   const entropyInstance = entropy();
   entropyInstance.ping();
@@ -41,6 +41,7 @@ async function buildChatrouilleInstance() {
     information.public_key_x448_signature,
     CHATROUILLE_HARCODED_PUBLIC_KEY,
   );
+  serverTimeDiff = information.time - Math.ceil(+new Date() / 1000);
   instanceBuildingPromise = undefined;
   entropyInstance.ping();
 }
@@ -58,7 +59,7 @@ export async function anonymousGraphql(graphql) {
   const entropyInstance = entropy();
   entropyInstance.ping(); // Ping before processing
 
-  const exp = Math.ceil(+new Date() / 1000);
+  const exp = Math.ceil(+new Date() / 1000) + serverTimeDiff + MAX_SERVER_DIFF;
   const payload = JSON.stringify({
     graphql,
     exp,

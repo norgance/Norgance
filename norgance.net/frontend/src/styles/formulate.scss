@@ -200,6 +200,19 @@
   outline: 0;
   border: 1px solid #41b883;
 }
+
+@function rainbow-linear-gradient($angle, $s, $l) {
+  $rainbow: ();
+  $steps: 36 * 2;
+  @for $i from 0 through $steps {
+    $rainbow: append(
+      $rainbow, 
+      hsl($i / ($steps/2) * 360, $s, $l),
+    comma);
+  }
+  @return linear-gradient($angle, $rainbow)
+}
+
 .formulate-input[data-classification="button"] button {
   appearance: none;
   box-sizing: border-box;
@@ -214,9 +227,9 @@
   //border-color: #41b883;
   border-color: rgba(0,0,0,0.225);
   //border-radius: 0.4rem;
-  background: linear-gradient(124deg, #ff2400, #e81d1d, #90710f, #e3e81d, #1de840, #1ddde8, #2b1de8, purple, pink, #ff2400, #e81d1d, #e8b71d, #e3e81d, #1de840, #1ddde8, #2b1de8, lightcoral, pink);
+  background: rainbow-linear-gradient(124deg, 50%, 50%);
   background-size: 4000% 100%;
-  background-position: 400% 0;
+  background-position: 1300% 0;
   animation: rainbow2 240s linear infinite;
   //animation: rainbow2 10s linear infinite;
   color: white;

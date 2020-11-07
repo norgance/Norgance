@@ -22,7 +22,10 @@
 )]
 mod utils;
 
+use once_cell::sync::OnceCell;
 use snafu::{ResultExt, Snafu};
+use std::collections::HashMap;
+use std::sync::Mutex;
 use wasm_bindgen::prelude::*;
 
 // When the `wee_alloc` feature is enabled, use `wee_alloc` as the global
@@ -64,6 +67,7 @@ pub enum NorganceError {
     InvalidUTF8,
     InvalidX25519DalekPrivateKey,
     InvalidX25519DalekPublicKey,
+    InvalidVault,
     NotEnoughEntropy,
     PublicKey,
     PublicKeySignature,
@@ -71,8 +75,11 @@ pub enum NorganceError {
         source: rand::Error,
     },
     SharedSecret,
-    SymmetricKeyError,
+    VaultKeyError,
     KeypairError,
+    CompressorError {
+        source: chatrouille::compressor::CompressorError,
+    },
 }
 
 impl From<NorganceError> for wasm_bindgen::JsValue {
@@ -92,6 +99,16 @@ fn argon2_hash_base64(data: &[u8], salt: &[u8], config: &argon2::Config) -> Resu
 
 #[wasm_bindgen]
 pub fn norgance_identifier(identifier: &str) -> Result<String> {
+    static CACHE_INSTANCE: OnceCell<Mutex<HashMap<String, String>>> = OnceCell::new();
+    let cache_instance = CACHE_INSTANCE.get_or_init(|| Mutex::new(HashMap::new()));
+
+    let cache = cache_instance.lock().unwrap();
+    match cache.get(identifier) {
+        Some(hash) => return Ok(hash.clone()),
+        None => {}
+    };
+    drop(cache);
+
     const ARGON2ID_SETTINGS: argon2::Config = argon2::Config {
         variant: argon2::Variant::Argon2id,
         version: argon2::Version::Version13,
@@ -107,7 +124,14 @@ pub fn norgance_identifier(identifier: &str) -> Result<String> {
         hash_length: 48, // 48 bytes, 64 bytes long encoded in base64
     };
 
-    argon2_hash_base64(identifier.as_bytes(), NORGANCE_SALT, &ARGON2ID_SETTINGS)
+    match argon2_hash_base64(identifier.as_bytes(), NORGANCE_SALT, &ARGON2ID_SETTINGS) {
+        Ok(hash) => {
+            let mut cache = cache_instance.lock().unwrap();
+            cache.insert(String::from(identifier), hash.clone());
+            Ok(hash)
+        }
+        Err(x) => Err(x),
+    }
 }
 
 fn norgance_argon2id(identifier: &str, password: &str, mode: &[u8]) -> Result<Vec<u8>> {
@@ -115,7 +139,8 @@ fn norgance_argon2id(identifier: &str, password: &str, mode: &[u8]) -> Result<Ve
         variant: argon2::Variant::Argon2id,
         version: argon2::Version::Version13,
         // The memory is a bit more high to make it slower and more difficult
-        mem_cost: 16384,
+        //mem_cost: 16384,
+        mem_cost: 8192,
         time_cost: 3,
         lanes: 1,
         thread_mode: argon2::ThreadMode::Sequential,
@@ -132,23 +157,22 @@ fn norgance_argon2id(identifier: &str, password: &str, mode: &[u8]) -> Result<Ve
 }
 
 #[wasm_bindgen]
-pub struct NorganceSymmetricKey {
+pub struct NorganceVaultKey {
     key: orion::aead::SecretKey,
 }
 
 #[wasm_bindgen]
-pub fn norgance_citizen_symmetric_key(
-    identifier: &str,
-    password: &str,
-) -> Result<NorganceSymmetricKey> {
-    let raw_key = norgance_argon2id(identifier, password, b"symmetric_key")?;
+impl NorganceVaultKey {
+    pub fn derive(identifier: &str, password: &str) -> Result<NorganceVaultKey> {
+        let raw_key = norgance_argon2id(identifier, password, b"vault_key")?;
 
-    let key = match orion::aead::SecretKey::from_slice(&raw_key) {
-        Ok(key) => key,
-        Err(_) => return Err(NorganceError::SymmetricKeyError.into()),
-    };
+        let key = match orion::aead::SecretKey::from_slice(&raw_key) {
+            Ok(key) => key,
+            Err(_) => return Err(NorganceError::VaultKeyError.into()),
+        };
 
-    Ok(NorganceSymmetricKey { key })
+        Ok(NorganceVaultKey { key })
+    }
 }
 
 #[wasm_bindgen]
@@ -185,6 +209,53 @@ impl NorganceAccessKey {
         let public: ed25519_dalek::PublicKey = (&secret).into();
 
         Ok(ed25519_dalek::Keypair { public, secret })
+    }
+}
+
+#[wasm_bindgen]
+pub struct NorganceVault {}
+
+#[wasm_bindgen]
+impl NorganceVault {
+    pub fn open(key: &NorganceVaultKey, encrypted_data_base64: &[u8]) -> Result<String> {
+        let encrypted_data = match base64::decode(encrypted_data_base64) {
+            Ok(bytes) => bytes,
+            Err(_) => return Err(NorganceError::InvalidVault.into()),
+        };
+
+        let decrypted_data = match orion::aead::open(&key.key, &encrypted_data) {
+            Ok(bytes) => bytes,
+            Err(_) => return Err(NorganceError::InvalidVault.into()),
+        };
+
+        let uncompressed_data =
+            chatrouille::compressor::decompress(&decrypted_data).context(CompressorError)?;
+
+        match std::str::from_utf8(&uncompressed_data) {
+            Ok(r) => Ok(String::from(r)),
+            Err(_) => Err(NorganceError::InvalidUTF8.into()),
+        }
+    }
+
+    pub fn seal(key: &NorganceVaultKey, data_string: &str) -> Result<String> {
+        let mut compressed =
+            chatrouille::compressor::compress(data_string.as_bytes()).context(CompressorError)?;
+
+        // To slightly improve the privacy, we pad all
+        // compressed messages with zeros to have a final size which is a multiple of 32.
+        let diff_with_32 = compressed.len() % 32;
+        if diff_with_32 != 0 {
+            compressed.append(&mut vec![0; 32 - diff_with_32]);
+        }
+
+        let encrypted_data = match orion::aead::seal(&key.key, &compressed) {
+            Ok(bytes) => bytes,
+            Err(_) => return Err(NorganceError::InvalidVault.into()),
+        };
+
+        let encrypted_data_base64 = base64::encode_config(encrypted_data, base64::STANDARD_NO_PAD);
+
+        Ok(encrypted_data_base64)
     }
 }
 

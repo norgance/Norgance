@@ -31,6 +31,7 @@ uuid = "0.8.1"
 wasm-bindgen = "0.2.68"
 x25519-dalek = "1.1.0"
 x448 = "0.6.0"
+once_cell = "1.4.1"
 
 # The `console_error_panic_hook` crate provides better debugging of panics by
 # logging them with `console.error`. This is great for development, but requires
