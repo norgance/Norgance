@@ -146,7 +146,6 @@ export default {
               break;
             case '1':
             case '0':
-              this.badPassword = true;
               this.rarePassword = true;
               break;
             case 'good':
@@ -210,11 +209,9 @@ export default {
 .worst-password,
 .terrible-password,
 .bad-password,
+.rare-password,
 .error {
   color: #f44336;
-}
-.rare-password {
-  color: #9C27B0;
 }
 .error {
   font-size: 0.9em;
@@ -270,10 +267,10 @@ fr:
     Le mot de passe que vous avez choisi est très courant.
     Il est très fortement conseillé d'en choisir un autre.
   badPassword: |
-    Le mot de passe que vous avez choisi n'est pas sécurisé
-    car il fait partie des listes de mots de passes courants.
+    Le mot de passe que vous avez choisi est relativement courant.
     Il est très fortement conseillé d'en choisir un autre.
   rarePassword: |
+    Le mot de passe que vous avez choisi n'est pas sécurisé.
     Si vous pensez être la seule personne qui utilise ce mot de passe,
     vous devriez changer de mot de passe partout où vous l'avez utilisé.
   doNotCareAboutThePassword: Utiliser ce mot de passe quand même.

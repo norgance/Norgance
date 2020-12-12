@@ -1,6 +1,9 @@
 <template>
   <div>
     <h2>{{ $t("finalTitle") }}</h2>
+    <div class="spinner-area" v-show="!done && !error">
+      <Spinner class="large rainbow" />
+    </div>
     <ul>
       <transition-group name="component-fade">
         <li key="started" v-show="started">{{ $t("started") }}</li>
@@ -17,9 +20,6 @@
           <router-link :to="{ name: 'CitizenApplicationNames' }">
             {{ $t("try-again") }}
           </router-link>
-        </li>
-        <li class="spinner-area" key="spinner" v-show="!done && !error">
-          <Spinner class="large rainbow" />
         </li>
       </transition-group>
     </ul>
@@ -64,13 +64,13 @@ export default {
     },
   },
   async mounted() {
-    if (!this.name) {
+    /* if (!this.name) {
       this.$router.push({ name: 'CitizenApplicationNames' });
     } else if (!this.identifier || !this.identifierHash) {
       this.$router.push({ name: 'CitizenApplicationIdentifier' });
     } else if (!this.password) {
       this.$router.push({ name: 'CitizenApplicationPassword' });
-    }
+    } */
     await this.$store.dispatch(
       'citizenApplication/registerCitizenship/register',
     );
@@ -82,17 +82,18 @@ export default {
 h2 {
   font-size: 1.4em;
   font-weight: 300;
+  text-align: center;
 }
 ul {
   margin: 0;
   padding: 0;
   font-style: italic;
-  //font-family: monospace, monospace;
+  text-align: center;
+  color: #666;
 }
 li {
   list-style: none;
 }
-.spinner-area,
 .error,
 .done {
   font-style: normal;
@@ -103,7 +104,10 @@ li {
 .error {
   color: #f44336;
 }
-
+.spinner-area {
+  margin: 2em auto;
+  text-align: center;
+}
 </style>
 
 <i18n lang="yaml">

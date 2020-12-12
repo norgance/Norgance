@@ -5,7 +5,7 @@ import { en, es, fr } from '@braid/vue-formulate-i18n';
 Vue.use(VueI18n);
 
 const DEFAULT_LOCALE = 'en';
-const LOCALES = ['en', 'es', 'fr'];
+const LOCALES = ['en', 'es', 'fr', 'no'];
 
 function loadLocaleMessages() {
   return Object.fromEntries(LOCALES.map((locale) => ([locale, {}])));

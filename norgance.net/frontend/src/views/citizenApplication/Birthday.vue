@@ -114,9 +114,22 @@ export default {
 en:
   birthday: When are you born ?
   future: We welcome time travelers.
-  back: Back to your names
+  veryOld: Very elderly people are welcome.
+  justBorn: Congratulations on the birth!
+  back: Back to the names
   continue: Continue
-  birthdayError: A birthdate is required.
+  birthdayHelp: |
+    Your date of birth is optional
+    and you can leave the field blank.
+    A date of birth can be useful for
+    other people can identify you more accurately.
+    You can provide an approximate date of birth
+    if you do not know your exact date of birth.
+  birthplace: Where are you born?
+  birthplaceHelp: |
+    Your place of birth is optional.
+    You can specify it if you want it to appear
+    on your documents or leave the field empty.
 fr:
   birthday: Quelle est votre date de naissance ?
   future: Les voyageurs dans le temps sont les bienvenus.

@@ -1,6 +1,6 @@
 <template>
   <div>
-    <h1 v-if="step !== '6'">{{ $t("hello") }}</h1>
+    <h1 v-if="step !== '6'">{{ $t("title") }}</h1>
     <p v-if="step && step !== '6'" class="step-counter">
       {{ $t("step", { step, total: totalStep }) }}
     </p>
@@ -44,6 +44,8 @@ export default {
 .step-counter {
   text-align: right;
   font-size: 0.9em;
+  margin-top:0;
+  color: #666;
 }
 .registration-view {
   max-width: 20em;
@@ -52,15 +54,27 @@ export default {
 h1 {
   margin-top: 2rem;
   text-align: center;
+  font-weight: 300;
+  background-image: linear-gradient(
+    to left,
+    hsl(320, 75, 50),
+    hsl(200, 100, 30),
+    hsl(320, 75, 50),
+  );
+  background-size: 20em 100%;
+  -webkit-background-clip: text;
+  -moz-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  -moz-text-fill-color: transparent;
 }
 </style>
 
 <i18n lang="yaml">
 en:
-  hello: "hello world!"
-  become-citizen: Becoming a citizen
+  title: Citizenship Application
   step: Step {step}/{total}.
 fr:
-  hello: Demande de citoyenneté
+  title: Demande de citoyenneté
   step: Étape {step} sur {total}.
 </i18n>

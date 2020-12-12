@@ -53,7 +53,9 @@ export default {
 en:
   name: What is your name ?
   familyName: What is your family name ?
-  nameHelp: Your name is required.
+  nameHelp: |
+    Your name will designate you.
+    It is mandatory and will appear on your documents.
   familyNameHelp: |
     The family name is optional.
     Leave this field empty if you do not wish to have a family name.
@@ -63,7 +65,7 @@ fr:
   name: Quel est votre nom ?
   familyName: Quel est votre nom de famille ?
   nameHelp: |
-    Votre nom permettant de vous désigner.
+    Votre nom sert à vous désigner.
     Il est obligatoire et il apparaîtra sur vos documents.
   familyNameHelp: |
     Un nom de famille est facultatif.

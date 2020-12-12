@@ -28,6 +28,11 @@ p.start {
 <i18n lang="yaml">
 en:
   start: Start !
+  disclaimer: |
+    You have to fill a citizenship form to become a Norgance citizen.
+    Your application will be accepted immediately once you finalize and submit it.
+    The information are private and not shared without your agreement.
+    However, if you prefer to not fill specific parts of the form, do not fill them.
 fr:
   start: Commencer !
   disclaimer: |
