@@ -2,10 +2,18 @@
 #include <ChaCha.h>
 #include <Ed25519.h>
 
-// Should be a random number between 0 and 1023
-#define DYNAMIC_DELAY_SECRET 123
-
 static const int analogInPin = A1;
+
+/** SECRETS */
+// Should be a random number between 0 and 1023
+static const uint8_t dynamicdelaySecret = 123;
+static const uint8_t startingEntropy[32] = {
+  1, 2, 3, 4, 5, 6, 7, 8,
+  9, 10, 11, 12, 13, 14, 15, 16,
+  17, 18, 19, 20, 21, 22, 23, 24,
+  25, 26, 27, 28, 29, 30, 31, 32
+};
+
 static int sensorValue = 0;
 static ChaCha chacha;
 static char serialInputBuffer[256] = {0};
@@ -21,10 +29,10 @@ static void collectEntropyBits(uint8_t buffer[], const uint16_t size) {
   for (uint16_t i = 0; i < size * 8; ++i) {
     do {
       a = analogRead(analogInPin);
-      timeToWait = map(~(a ^ DYNAMIC_DELAY_SECRET), 0, 1023, 20, 50);
+      timeToWait = map(~(a ^ dynamicdelaySecret), 0, 1023, 20, 50);
       delayMicroseconds(timeToWait);
       b = analogRead(analogInPin);
-      timeToWait = map(~(b ^ DYNAMIC_DELAY_SECRET), 0, 1023, 500, 4000);
+      timeToWait = map(~(b ^ dynamicdelaySecret), 0, 1023, 500, 4000);
       delayMicroseconds(timeToWait);
     } while (a == b);
 
@@ -36,13 +44,11 @@ static void collectEntropyBits(uint8_t buffer[], const uint16_t size) {
   }
 }
 
-static void setupRND(uint8_t entropy[32]) {
+static void setupRND(const uint8_t entropy[32]) {
 
   uint8_t entropyStarter[32] = {0};
   if (entropy != NULL) {
     memcpy(entropyStarter, entropy, 32);
-  } else {
-    collectEntropyBits(entropyStarter, 32);
   }
 
   chacha.setNumRounds(20);
@@ -99,7 +105,7 @@ static unsigned int safer_decode_base64(unsigned char* input, uint8_t* output, u
 }
 
 
-static void setPrivateKey() {
+static void derivePublicKey() {
   Ed25519::derivePublicKey((uint8_t*)publicKey, (const uint8_t*)privateKey);
   Serial.print("PUBLIC_KEY ");
   memset(documentBuffer, 0, 256);
@@ -110,7 +116,7 @@ static void setPrivateKey() {
 
 static void randomPrivateKey() {
   collectRND(privateKey, 32);
-  setPrivateKey();
+  derivePublicKey();
 }
 
 
@@ -124,18 +130,24 @@ static void sign(unsigned int documentSize) {
 }
 
 void setup() {
+  pinMode(LED_BUILTIN, OUTPUT);
+  
   Serial.begin(9600);
   while (!Serial) {}
 
+  digitalWrite(LED_BUILTIN, HIGH);
   Serial.println("BOOTING");
-  setupRND(NULL);
+  setupRND(startingEntropy);
   randomPrivateKey();
   Serial.println("READY");
+  digitalWrite(LED_BUILTIN, LOW); 
 }
 
 void loop() {
+  digitalWrite(LED_BUILTIN, LOW);
   memset(serialInputBuffer, 0, 255);
   if (Serial.readBytesUntil('\n', serialInputBuffer, 255) > 0) {
+    digitalWrite(LED_BUILTIN, HIGH);
     char* command = strtok(serialInputBuffer, " \t");
 
     if (command == NULL) return;
@@ -186,7 +198,6 @@ void loop() {
     else {
       Serial.println("Command not found.");
     }
-
 
   }
 
