@@ -17,7 +17,7 @@ static const uint8_t startingEntropy[32] = {
 static int sensorValue = 0;
 static ChaCha chacha;
 static char serialInputBuffer[256] = {0};
-static uint8_t documentBuffer[256] = {0};
+static uint8_t commonBuffer[256] = {0};
 uint8_t privateKey[32] = {0};
 uint8_t publicKey[32] = {0};
 
@@ -72,13 +72,12 @@ static void collectRND(uint8_t output[], const uint16_t size) {
 
   uint16_t remainingBits = size;
   uint8_t *outputBatchPointer = output;
-  uint8_t *buffer = documentBuffer;
 
   while (remainingBits > 0) {
     uint16_t sizeCurrentBatch = min(256, remainingBits);
-    collectEntropyBits(buffer, sizeCurrentBatch);
+    collectEntropyBits(commonBuffer, sizeCurrentBatch);
 
-    chacha.encrypt(outputBatchPointer, buffer, sizeCurrentBatch);
+    chacha.encrypt(outputBatchPointer, commonBuffer, sizeCurrentBatch);
 
     remainingBits -= sizeCurrentBatch;
     outputBatchPointer += sizeCurrentBatch;
@@ -99,10 +98,10 @@ static void derivePublicKey() {
 }
 
 static void printPublicKey() {
-  memset(documentBuffer, 0, 256);
-  encode_base64(publicKey, 32, documentBuffer);
-  Serial.println((char*) documentBuffer);
-  memset(documentBuffer, 0, 256);
+  memset(commonBuffer, 0, 256);
+  encode_base64(publicKey, 32, commonBuffer);
+  Serial.println((char*) commonBuffer);
+  memset(commonBuffer, 0, 256);
 }
 
 static void randomPrivateKey() {
@@ -115,11 +114,11 @@ static void randomPrivateKey() {
 
 static void sign(unsigned int documentSize) {
   uint8_t signature[64] = {0};
-  Ed25519::sign(signature, privateKey, publicKey, documentBuffer, documentSize);
-  memset(documentBuffer, 0, 256);
-  encode_base64(signature, 64, documentBuffer);
-  Serial.println((char*) documentBuffer);
-  memset(documentBuffer, 0, 256);
+  Ed25519::sign(signature, privateKey, publicKey, commonBuffer, documentSize);
+  memset(commonBuffer, 0, 256);
+  encode_base64(signature, 64, commonBuffer);
+  Serial.println((char*) commonBuffer);
+  memset(commonBuffer, 0, 256);
 }
 
 void setup() {
@@ -150,7 +149,7 @@ void loop() {
       Serial.println("KOINKOIN");
     } else if (strcmp("SIGN", command) == 0) {
       char* documentBase64 = strtok(NULL, " ");
-      unsigned int documentSize = safer_decode_base64((unsigned char*) documentBase64, documentBuffer, 128);
+      unsigned int documentSize = safer_decode_base64((unsigned char*) documentBase64, commonBuffer, 128);
       sign(documentSize);
     } else if (strcmp("GET_PUBLIC_KEY", command) == 0) {
       printPublicKey();
