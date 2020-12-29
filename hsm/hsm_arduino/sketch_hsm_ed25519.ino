@@ -67,29 +67,18 @@ static void setupRND(const uint8_t entropy[32]) {
   chacha.setKey(newKey, 32);
 }
 
-static void shuffleRND() {
-  uint8_t newEntropy[32] = {0};
-  collectEntropyBits(newEntropy, 32);
-  uint8_t newKey[32] = {0};
-  chacha.encrypt(newKey, newEntropy, 32);
-  chacha.setKey(newKey, 32);
-}
 
-static void collectRND(uint8_t output[], const uint16_t size, bool encrypt = true) {
+static void collectRND(uint8_t output[], const uint16_t size) {
 
   uint16_t remainingBits = size;
   uint8_t *outputBatchPointer = output;
-  uint8_t buffer[256];
+  uint8_t *buffer = documentBuffer;
 
   while (remainingBits > 0) {
     uint16_t sizeCurrentBatch = min(256, remainingBits);
     collectEntropyBits(buffer, sizeCurrentBatch);
 
-    if (encrypt) {
-      chacha.encrypt(outputBatchPointer, buffer, sizeCurrentBatch);
-    } else {
-      memcpy(outputBatchPointer, buffer, sizeCurrentBatch);
-    }
+    chacha.encrypt(outputBatchPointer, buffer, sizeCurrentBatch);
 
     remainingBits -= sizeCurrentBatch;
     outputBatchPointer += sizeCurrentBatch;
@@ -107,7 +96,9 @@ static unsigned int safer_decode_base64(unsigned char* input, uint8_t* output, u
 
 static void derivePublicKey() {
   Ed25519::derivePublicKey((uint8_t*)publicKey, (const uint8_t*)privateKey);
-  Serial.print("PUBLIC_KEY ");
+}
+
+static void printPublicKey() {
   memset(documentBuffer, 0, 256);
   encode_base64(publicKey, 32, documentBuffer);
   Serial.println((char*) documentBuffer);
@@ -117,6 +108,8 @@ static void derivePublicKey() {
 static void randomPrivateKey() {
   collectRND(privateKey, 32);
   derivePublicKey();
+  Serial.print("PUBLIC_KEY ");
+  printPublicKey();
 }
 
 
@@ -131,74 +124,41 @@ static void sign(unsigned int documentSize) {
 
 void setup() {
   pinMode(LED_BUILTIN, OUTPUT);
-  
+
   Serial.begin(9600);
-  while (!Serial) {}
 
   digitalWrite(LED_BUILTIN, HIGH);
   Serial.println("BOOTING");
   setupRND(startingEntropy);
   randomPrivateKey();
   Serial.println("READY");
-  digitalWrite(LED_BUILTIN, LOW); 
+  digitalWrite(LED_BUILTIN, LOW);
 }
 
 void loop() {
+  if (!Serial) return;
+
   digitalWrite(LED_BUILTIN, LOW);
   memset(serialInputBuffer, 0, 255);
   if (Serial.readBytesUntil('\n', serialInputBuffer, 255) > 0) {
     digitalWrite(LED_BUILTIN, HIGH);
-    char* command = strtok(serialInputBuffer, " \t");
+    char* command = strtok(serialInputBuffer, " ");
 
     if (command == NULL) return;
-
-    // Make command uppercase
-    for (char* c = command; *c; ++c) {
-      *c = (char) toupper(*c);
-    }
 
     if (strcmp("CANARD", command) == 0) {
       Serial.println("KOINKOIN");
     } else if (strcmp("SIGN", command) == 0) {
-      char* documentBase64 = strtok(NULL, " \t");
-      unsigned int documentSize = safer_decode_base64((unsigned char*) documentBase64, documentBuffer, 256);
+      char* documentBase64 = strtok(NULL, " ");
+      unsigned int documentSize = safer_decode_base64((unsigned char*) documentBase64, documentBuffer, 128);
       sign(documentSize);
-    } else if (strcmp("SHUFFLE_RND", command) == 0) {
-      shuffleRND();
-      Serial.println("OK");
-
-    } else if (strcmp("RANDOM_PRIVATE_KEY", command) == 0) {
+    } else if (strcmp("GET_PUBLIC_KEY", command) == 0) {
+      printPublicKey();
+    } else if (strcmp("RENEW_KEYPAIR", command) == 0) {
       randomPrivateKey();
+    } else {
+      Serial.println("UNKNOWN COMMAND");
     }
-#ifdef DEVELOPMENT_MODE
-    else if (strcmp("SETUP_RND", command) == 0) {
-      char* entropyBase64 = strtok(NULL, " \t");
-      size_t entropyLength = strlen(entropyBase64);
-      if (entropyLength == 0) {
-        setupRND(NULL);
-        Serial.println("OK");
-      } else if (strlen(entropyBase64) == 44) {
-        uint8_t entropy[32] = {0};
-        safer_decode_base64((unsigned char*) entropyBase64, entropy, 32);
-        setupRND(entropy);
-        Serial.println("OK");
-      } else {
-        Serial.println("Invalid entropy.");
-      }
-    } else if (strcmp("SET_PRIVATE_KEY", command) == 0) {
-      char* keyBase64 = strtok(NULL, " \t");
-      if (strlen(keyBase64) == 44) {
-        safer_decode_base64((unsigned char*) keyBase64, privateKey, 32);
-        setPrivateKey();
-      } else {
-        Serial.println("Invalid private key.");
-      }
-    }
-#endif
-    else {
-      Serial.println("Command not found.");
-    }
-
   }
 
 }
