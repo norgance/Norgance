@@ -84,15 +84,6 @@ static void collectRND(uint8_t output[], const uint16_t size) {
   }
 }
 
-static unsigned int safer_decode_base64(unsigned char* input, uint8_t* output, unsigned int maxLength) {
-  unsigned int computedLength = decode_base64_length(input);
-  if (computedLength > maxLength) {
-    return 0;
-  }
-  return decode_base64(input, output);
-}
-
-
 static void derivePublicKey() {
   Ed25519::derivePublicKey((uint8_t*)publicKey, (const uint8_t*)privateKey);
 }
@@ -149,7 +140,7 @@ void loop() {
       Serial.println("KOINKOIN");
     } else if (strcmp("SIGN", command) == 0) {
       char* documentBase64 = strtok(NULL, " ");
-      unsigned int documentSize = safer_decode_base64((unsigned char*) documentBase64, commonBuffer, 128);
+      unsigned int documentSize = decode_base64((unsigned char*) documentBase64, strlen(documentBase64), commonBuffer);
       sign(documentSize);
     } else if (strcmp("GET_PUBLIC_KEY", command) == 0) {
       printPublicKey();
