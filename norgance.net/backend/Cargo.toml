@@ -11,7 +11,7 @@ development = []
 [dependencies]
 base64 = "0.13.0"
 chatrouille = { version = "0.1.0", path = "../chatrouille" }
-diesel = { version = "1.4.5", features = ["postgres","r2d2"] }
+diesel = { version = "1.4.6", features = ["postgres","r2d2"] }
 diesel_migrations = "1.4.0"
 ed25519-dalek = "1.0.1"
 futures = "0.3.6"
